@@ -1,0 +1,322 @@
+---
+title: "Introduction to Data Mathematics Spring 2021"
+author: "Jared Gridley"
+subtitle: 'PreLab 2: K-Means'
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+  toc: yes
+  header-includes: \usepackage{color}
+---
+
+# Lab Overview
+In this prelab, you will learn how to read in data set from a file, prepare it for processing and analyze it with k-means.Specifically, you will:
+
+* Read in a `csv` file
+* Prepare data for analysis
+* "Sanity check" your data
+* Use k-means to identify clusters
+* Select a number of clusters
+* Intepret your clusters using various plot formats
+
+In this prelab we will demonstrate the techniques using a "toy" data set from class.  The questions listed as $\color{blue}{Exercise}$ will be graded, so be sure you have answered them in your final submission!
+
+We recommend you start by saving this prelab `PreLab2.Rmd` to your local `IDM_work` directory, edit the header to include your name, and then "knit" it for practice. 
+
+```{r setup, include=FALSE}
+# Required R package installation:
+
+#Set the correct default repository
+r = getOption("repos")
+r["CRAN"] = "http://cran.us.r-project.org"
+options(repos = r)
+
+# These will install packages if they are not already installed
+if (!require("ggplot2")) {
+   install.packages("ggplot2")
+   library(ggplot2)
+}
+if (!require("knitr")) {
+   install.packages("knitr")
+   library(knitr)
+}
+
+if (!require("dplyr")) {
+   install.packages("dplyr")
+   library(dplyr)
+}
+
+if (!require("tidyr")) {
+   install.packages("tidyr")
+   library(dplyr)
+}
+
+if (!require("gplots")) {
+  install.packages("gplots")
+  library(gplots)
+}
+
+if (!require("reshape2")) {
+  install.packages("reshape2")
+  library(reshape2)
+}
+
+library(plyr)
+
+# All all latter code chunks will use these options:
+knitr::opts_chunk$set(echo = TRUE) # code in code chunks will be displayed above its results in the knitted document
+```
+
+
+# Setting up the Prelab
+Copy `PreLab2.Rmd` to your working directory `IDM_work`. Use this for your assignment.  Do a practice "knit" (to pdf or html) before you begin.
+
+# Do K-means Analysis
+Let's begin by repeating the k-means analyses covered in class. 
+
+## Read in and Explore the Data Set 
+First, we need to get the dataset ready for analysis. 
+
+```{r}
+# Read in data from the data file; create a dataframe
+M.df <- read.csv("~/MATP-4400/data/lab2dat.csv")
+
+# Examine the data by using the str() command
+str(M.df)
+
+# Convert the dataframe to a matrix
+M.matrix <-as.matrix(M.df)
+```
+
+Now examine the data by computing the column means, by doing a [boxplot](http://www.physics.csbsju.edu/stats/box2.html) and by doing a heat map. Here we will use the `heatmap()` command which produces a nice display.   Note that the `Rowv=NA` and `Colv=NA` parameters ensure that the rows and columns are provided in the order you gave.  The `cexRow` and `cexcol` parameters reduce the font size of the heatmap.
+
+```{r}
+# Compute the column means
+colMeans(M.matrix)
+
+boxplot(M.matrix, main="Features in Dataset")
+
+# make densities plots of the Height of a matrix
+#  use ggplot in M.df using Height variable
+ggplot(M.df,aes(x=Height)) + 
+  geom_density(fill="light blue") + # The density plot is filled with light blue
+  ggtitle("Distribution of Height") #b Give it a title
+```
+
+Notice the structure of the `ggplot()` command:
+
+* `ggplot(M.df,aes(x=Height)) + ` starts the plot and says to use the data.frame `M.df`, and to use `Height` as the x-axis valiable. `ggplot()` only works on data frames and produces a *plot object*. The `aes()` function ("aesthetic") is used to specify variables and options to use when constructing ggplot objects and adding geometry layers. 
+* The `+` adds *layers* to the ggplot object.   
+* `geom_density(fill="light blue") + ` specifies a "geometry" for the plot (a _density_ plot); `fill="light blue"` instructs gpplot to fill the resulting density plot to a fixed value, in this case `light blue`. 
+* `ggtitle()` specifies the title of the plot.
+
+To learn more about `geom_density()`, check out this link
+(http://www.sthda.com/english/wiki/ggplot2-density-plot-quick-start-guide-r-software-and-data-visualization) and/or type `?geom_density` in your R console.
+
+**TRY IT:** Make additional density plots of the `Length` and `Width` of the matrix.  Receive an extra point, if you add features beyond the simple density plot we created  above.
+
+```{r}
+#Plot of the length with the mean line
+L_plot <- ggplot(M.df, aes(x=Length)) + geom_density(fill = "lightblue") + geom_vline(aes(xintercept=mean(Length)), linetype = "dashed", size = 1, color = "blue") + ggtitle("Distribution of Length")
+L_plot
+#Width plot with the mean line
+W_plot <- ggplot(M.df, aes(x=Width)) + geom_density(fill = "lightgreen") + geom_vline(aes(xintercept=mean(Width)), linetype = "dashed", size = 1, color = "darkgreen") + ggtitle("Distribution of Width")
+W_plot
+```
+
+
+## Make a heatmap of the data
+
+NOTE: The `heatmap.2()` function only works on matrices!
+
+```{r}
+
+# First set up the heatmap layout (key on bottom)
+lmat = rbind(c(0,3),
+            c(2,1),
+            c(0,4))
+lwid = c(1,4)
+lhei = c(1.5,4,2)
+
+# The options we've shown ensure that the heatmap is for the matrix as-is without any rescaling or reordering. 
+heatmap.2(M.matrix, main='Heatmap of Matrix M', 
+          dendrogram="none", 
+          Rowv=FALSE,  # Keep rows as is
+          cexRow=0.75, # this makes the text smaller
+          cexCol=0.75, 
+          scale="none", # Don't rescale data
+          tracecol=NA,
+          density.info='none',
+          lmat=lmat, lwid = lwid, lhei = lhei
+          )
+```
+
+## Create K-means Clusters
+
+Now we introduce a function for creating k-means plots.  The basic k-means function is `kmeans(D.matrix, centers =k)` in which `D.matrix` is a matrix of data and `k` is the number of clusters.  
+
+Here is an example for `k=4`:
+
+```{r}
+kmResult.df <- kmeans(M.matrix, centers = 4)
+```
+
+The outputs are found in `kmResult.df`.  
+
+```{r}
+# Assignment of points to vectors
+kmResult.df$cluster
+
+# Cluster Centers
+str(kmResult.df$center)
+
+# Objective Function
+kmResult.df$tot.withinss
+```
+
+# Choose K
+
+Now, we create a function to examine cluster sizes. The function below takes as its arguments a matrix, the maximum number of clusters and a random seed. 
+
+The basic syntax for creating a user-defined function in R is: 
+`output <- function(arguments){ do stuff}`
+
+```{r}
+# A user-defined function to examine clusters and plot the results
+wssplot <- function(data, nc=15, seed=10){
+  wss <- data.frame(cluster=1:nc, quality=c(0))
+  for (i in 1:nc){
+    set.seed(seed)
+    wss[i,2] <- kmeans(data, centers=i)$tot.withinss}
+  ggplot(data=wss,aes(x=cluster,y=quality)) + 
+    geom_line() + 
+    ggtitle("Quality of k-means by Cluster")
+}
+# Generate the plot
+wssplot(M.matrix, nc=8) 
+```
+
+This function calculates k-means solutions for k= 1 to nc. In this code, `nc=8`.  
+Then, it plots a line chart of the *Sum of Square Errors (SSE)* for each value of k. If the line chart looks like an arm, then the "elbow" on the arm is the value of k that is the best. The idea is that we want a small SSE, but that the SSE tends to decrease toward 0 as we increase k (the SSE is 0 when k is equal to the number of data points in the dataset, because then each data point is its own cluster, and there is no error between it and the center of its cluster). So our goal is to choose a small value of k that still has a low SSE, and the elbow usually represents where we start to have diminishing returns by increasing k.
+
+
+In this case, it looks like `k=2` is the best choice, since there is a clear "elbow" at 2.  Considering this, we rerun k-means to obtain the final clustering and then plot with respect to two variables.
+
+```{r}
+# set the random see to be 10
+set.seed(10)
+km <- kmeans(M.matrix,centers=2)
+
+```
+
+
+The variable `km` contains the results of the k-means clustering.  
+
+**TRY IT** On the console type `str(km)` to view the contents of `km` which is a data frame. Then check out `?kmeans`.  You can see that:
+* `Value` tells you what the function returns.
+* `km$cluster` holds the cluster assignment of each point
+* `km$centers` holds the cluster centers
+* `km$tot.withinss` contains the total sum of squares which is the sum of the squared distances of each point to its cluster centers.
+
+```{r}
+str(km)
+
+```
+
+## Analyze the results
+
+Let's explore the results
+
+```{r}
+# Here are the cluster centers
+km$centers
+```
+
+
+First let's plot each point in the Length x Height space using 'ggplot' and the 'geom_point' function.   
+
+```{r}
+# Convert the cluster vector to a factor
+kclass=as.factor(km$cluster)
+# Make a data frame with the data and the results
+kclass=as.factor(km$cluster)
+Mresults.df <-cbind.data.frame(M.matrix,kclass)
+
+# call ggplot with Mdf
+ggplot(data=Mresults.df,aes(x=Length, y=Height,color=kclass)) +
+# plot point on length versus height graph colored by kclass
+  geom_point() + 
+  ggtitle('Two Clusters of M Found by k-means')
+```
+
+Now let's explore the results by looking at the cluster centers in `km$cluster` using a heatmap
+
+```{r}
+# First set up the heatmap layout (key on bottom)
+lmat = rbind(c(0,3),
+            c(2,1),
+            c(0,4))
+lwid = c(1.5,4)
+lhei = c(1.5,4,2)
+
+# generate the heatmap of the cluster centers
+heatmap.2(km$centers, 
+          dendrogram='none', 
+          main='Heatmap of Cluster Centroids', 
+          cexRow=0.75, 
+          cexCol=0.75,
+          Rowv=FALSE,
+          scale = 'none', 
+          tracecol=NA, 
+          density.info='none',
+           # label cells with values
+          lmat=lmat, lwid = lwid, lhei = lhei
+          )
+```
+
+## What patterns in the cluster centers do you see?
+
+Explore differences in the data values using [boxplots](http://www.physics.csbsju.edu/stats/box2.html) by looking at the boxplot of `Length` by cluster.   Note that the formula `Length~kclass` specifies that `boxplot()` should make boxplots of `Length` grouped by `kclass`.
+
+```{r}
+boxplot(Length~kclass, data=Mresults.df, main="Boxplot of Length by Class")
+```
+
+Make a density plot of `Length` by `kclass`:
+```{r}
+ggplot(data=Mresults.df) + 
+  geom_density(aes(Length, color=kclass)) +
+  ggtitle("Length Density by Cluster")
+```
+
+
+# $\color{blue}{Exercise\ 1:}$ 
+ 
+1. Plot the density functions of `Width` for all the clusters on a single graph.
+2. Plot the density function of `Height` for all the clusters on a single graph.
+3. Compute the columm mean of cluster1 and the mean of cluster2.
+    + HINT: One way to do this is to make a data frame `cluster1` of just containing cluster1 and all the columns by  `cluster1 <- M.df[kclass==1,]`. But free to do it anyway you like.
+    
+```{r}
+#Width Density graph
+ggplot(data=Mresults.df) + 
+  geom_density(aes(Width, color=kclass)) +
+  ggtitle("Width Density by Cluster")
+
+cluster1 <- M.df[kclass==1,]
+print("Summary of cluster 1 (with column mean)")
+summary(cluster1)
+
+cluster2 <- M.df[kclass==2,]
+print("Summary of cluster 2 (with mean)")
+summary(cluster2)
+
+#Length Density graph
+ggplot(data=Mresults.df) + 
+  geom_density(aes(Length, color=kclass)) +
+  ggtitle("Length Density by Cluster")
+```
+**You've now completed Prelab2!  Go to LMS and complete the online quiz**
+
+```

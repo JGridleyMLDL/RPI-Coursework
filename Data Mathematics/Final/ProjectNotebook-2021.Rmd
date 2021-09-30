@@ -1,0 +1,782 @@
+---
+title: 'MATP-4400 Final Project Notebook (2021)'
+subtitle: 'Predicting Biodegradability Challenge'
+author: "Jared Gridley"
+date: "March 2021"
+output:
+  pdf_document:
+    toc: yes
+  html_notebook:
+    theme: united
+    toc: yes
+  html_document:
+    df_print: paged
+    header-includes: \usepackage{color}
+    toc: yes
+---
+
+```{r, include=FALSE, set.seed(20)}
+knitr::opts_chunk$set(cache = T)
+
+# Set the correct default repository
+r = getOption("repos")
+r["CRAN"] = "http://cran.rstudio.com"
+options(repos = r)
+
+
+# These will install required packages if they are not already installed
+if (!require("ggplot2")) {
+   install.packages("ggplot2", dependencies = TRUE)
+   library(ggplot2)
+}
+if (!require("knitr")) {
+   install.packages("knitr", dependencies = TRUE)
+   library(knitr)
+}
+if (!require("xtable")) {
+   install.packages("xtable", dependencies = TRUE)
+   library(xtable)
+}
+if (!require("pander")) {
+   install.packages("pander", dependencies = TRUE)
+   library(pander)
+}
+
+if (!require("devtools")) {
+  install.packages("devtools",dependencies = TRUE ) 
+  library(devtools)
+}
+
+if (!require("usethis")) {
+  install.packages("usethis" ) 
+  library(usethis)
+}
+
+if (!require("e1071")) {
+ install.packages("e1071" ) 
+  library(e1071)
+}
+
+if (!require("pROC")){
+  install.packages("pROC")
+   library(pROC)
+} 
+
+if (!require("dplyr")) {
+   install.packages("dplyr", dependencies = TRUE)
+   library(dplyr)
+}
+
+if (!require("tidyverse")) {
+   install.packages("tidyverse", dependencies = TRUE)
+   library(tidyverse)
+}
+
+if (!require("caret")) {
+   install.packages("caret", dependencies = TRUE)
+   library(caret)
+}
+
+if (!require("mlbench")) {
+   install.packages("mlbench")
+   library(mlbench)
+}
+
+if (!require("randomForest")) {
+   install.packages("randomForest")
+   library(randomForest)
+}
+
+if(!require("glmnet")) {
+   install.packages("glmnet")
+   library(glmnet)
+}
+
+if(!require("gbm")){
+   install.packages("gbm")
+   library(gbm)
+}
+if(!require("MASS")){
+   install.packages("MASS")
+   library(MASS)
+}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Team Information
+
+This report was prepared for **ChemsRUs** by  Jared Gridley,  *CodaLAB ID HERE* 
+for the Juicy Insights
+My team members are: Dan Stevens, David Q, John Allwein, Shane Boles, and Zach Wood
+
+Our team used  *Specify one of these.  Alll team member must use same site.*
+
+   * http://codalab.idea.rpi.edu/competitions/37 (RPI VPN - faster)
+   
+
+# BACKGROUND 
+## Chems-R-Us Task
+
+The European REACH regulation requires information on ready biodegradation, which is a screening test to assess the biodegradability of chemicals. At the same time REACH encourages the use of alternatives to animal testing. 
+
+Our contract is to build a classification model to predict ready biodegradation of chemicals and to predict the classification of 400 newly-developed molecules. This will help Chems-R-Us to design new materials with desired biodegradation properties more quickly and for lower cost.
+
+## Chems-R-Us Challenge Objective
+
+The Chems-R-Us Challenge consists of two problems:
+
+   * **Binary classification:** Each data row is labeled **-1** or **1**. We must train a predictive model on the train dataset to be able to find (as best we can) the labels of the test dataset.
+   * **Feature selection:** Scattered among the 168 features there are _fake features_. These are randomly generated variables which don't help predicting the class. The goal of this problem is to classify features between _fake_ **0** and _real_ **1**.
+
+## Data Overview
+
+## Chems-R-Us Training & Testing Data
+
+   * Experimental values of 1055 chemicals were collected. 
+   * The training dataset consists of these 1055 chemicals; whether they were readily biodegradable (1= yes , -1 = no); and 168 molecular descriptors.  
+   * Molecules and Molecular descriptors are proprietary.  No details are provided except _cryptic names_ in column headers
+   * A testing set of 400 molecules with unknown biodegradability is provided
+
+# Chems-R-Us BASELINE Logistic Regression (LR) Methodology 
+### Reading the Data
+
+```{r}
+# Prepare biodegradability data 
+#get feature names 
+featurenames <- read.csv("~/MATP-4400/data/chems_feat.name.csv",
+                         header=FALSE, 
+                         colClasses = "character")
+# get training data and rename with feature names
+cdata.df <-read.csv("~/MATP-4400/data/chems_train.data.csv",
+                    header=FALSE)
+colnames(cdata.df) <- featurenames$V1
+
+# get external testing data and rename with feature names
+tdata.df <-read.csv("~/MATP-4400/data/chems_test.data.csv",
+                    header=FALSE) 
+
+colnames(tdata.df) <- featurenames$V1
+
+class <- read.csv("~/MATP-4400/data/chems_train.solution.csv",
+                  header=FALSE, 
+                  colClasses = "factor") 
+
+class <- class$V1
+```
+
+### Preparing the Data: Create Training and Validation datasets
+
+We split the data into **90% train** and **10% validation** datasets.
+
+```{r}
+#ss will be the number of data points in the training set
+n <- nrow(cdata.df)
+ss <- ceiling(n*0.90)
+# Set random seed for reproducibility
+set.seed(200)
+train.perm <- sample(1:n,ss)
+#Split training and validation data
+train <- cdata.df %>% slice(train.perm) 
+validation <- cdata.df %>% slice(-train.perm) 
+
+train_raw <- train
+validation_raw <- validation
+```
+
+We then standardize all variables to a _common scale_, since we don't have domain knowledge and LR assumes independent and identically distributed (IID) Gaussian features. This avoids LR unwittingly prioritizing certain features simply because their scale is larger.
+
+```{r}
+# Initialize the scaler on the training data
+scaler <- preProcess(train, method = "scale") 
+# Normalize training data
+train <- predict(scaler, train) 
+# Normalize validation data
+validation <- predict(scaler, validation) 
+# Normalize testing data
+test <- predict(scaler, tdata.df) 
+# Split the output classes
+classtrain <- class[train.perm]
+classval <-class[-train.perm]
+
+```
+
+### Fitting Logistic Regression
+
+Now we fit a logistic regression model to the training data and obtain the _class probability estimates_ for the training and validation data.
+
+
+```{r, warning=FALSE}
+# Fit LR model to classify all the variables
+train.df <- cbind(train,classtrain)
+lrfit <- glm(classtrain~., data=train.df,
+             family = "binomial")
+# Predict training (OUTPUTS PROBABILITIES)
+ranking_lr.train <- predict(lrfit,train,
+                            type="response") 
+# Predict validation (OUTPUTS PROBABILITIES)
+ranking_lr.val <- predict(lrfit,validation,
+                          type="response") 
+```
+
+### Calculate LR Balanced Accuracy on the Validation dataset
+
+```{r, echo=FALSE}
+# This is a group of helper functions meant to avoid repetitiveness and shorten presentation output
+
+prob_to_class <- function(ranking_lr) {
+   # This helper function converts LR probability outputs into 1 and -1 classes
+   temp <- ranking_lr > 0.5
+   temp[temp==TRUE] <- 1
+   temp[temp==FALSE] <- -1 
+   return(as.factor(temp))
+}
+
+sensitivity_from_confmat <- function(confmat) {
+   # This helper returns the sensitivity given a confusion matrix
+   return(confmat[1,1]/(confmat[1,1]+confmat[1,2]))
+}
+
+specificity_from_confmat <- function(confmat) {
+   # This helper returns the specificity given a confusion matrix
+   return(confmat[2,2]/(confmat[2,1]+confmat[2,2]))
+}
+```
+
+To assess the model's performance, we built a **confusion matrix** of the validation outputs to get mis-classification rates and the balanced accuracy.
+We convert the probability estimates to class outputs and define the matrix.
+
+
+```{r}
+# This function converts PROBABILITIES to 1 and -1 CLASSES
+classval_lr <- prob_to_class(ranking_lr.val)
+# Calculate confusion matrix  to see balanced accuracy
+confusion.matrix <- table(classval,classval_lr)
+kable(confusion.matrix, type="html",digits = 2,
+      caption="Actual versus Predicted Class (Validation)")
+```
+
+### Calculate LR Balanced Accuracy on the Validation dataset (2)
+
+Given the confusion matrix $M$, we can find the balanced accuracy using the formula
+\begin{align*}
+   Sensitivity &= \frac{M_{1,1}}{M_{1,1} + M_{1,2}} = \frac{TruePos}{TruePos + FalseNeg} \\ 
+   Specificity &= \frac{M_{2,2}}{M_{2,1} + M_{2,2}} = \frac{TrueNeg}{TrueNeg + FalsePos}\\ 
+   BalancedAccuracy &= \frac{1}{2}\left(Sensitivity + Specificity\right)
+\end{align*}
+
+
+```{r}
+# True Positive Rate or Sensitivity
+Sensitivity <- sensitivity_from_confmat(confusion.matrix)
+# True Negative Rate or Specificity
+Specificity <- specificity_from_confmat(confusion.matrix)
+BalancedAccuracy <- (Sensitivity+Specificity)/2
+```
+
+Our Logistic Regression model achieves a balanced accuracy of `r BalancedAccuracy` on the validation data.
+
+### Feature Selection: Choosing Statistically Significant Regression Variables
+
+Given our use of Logistic Regression as a classification model, one simple way to perform feature selection is to select features with _statistically significant_ coefficients in the LR model.
+
+The `lrfit` object (see **Fit Logistic Regression** above) provides p-value estimates for each coefficient using a default null hypothesis, so we keep only features with p-values below the 80% confidence level. _Note that 80% is completely arbitrary._   
+
+
+```{r}
+# Get data frame with coefficient data excluding intercept
+coefficients.df <- as.data.frame(summary(lrfit)$coeff) %>% 
+   slice(2:n()) 
+# Boolean vector with TRUE corresponding to significant variables
+significant.variables <- coefficients.df %>% 
+   dplyr::select(last_col()) <= 0.2
+# Keep only statistically significant features
+train.fs <- train %>% select_if(significant.variables) 
+train.fs.df <- cbind(train.fs, classtrain)
+```
+
+### Fit Logistic Regression with Feature Selection
+
+We fit a **new** Logistic Regression model to the data with feature selection and find the training and validation probability estimates.
+
+
+```{r, warning=FALSE}
+# Fit LR model with feature selection
+lrfit.fs <- glm(classtrain ~., data = train.fs.df, 
+                 family = "binomial")
+# Predict training (OUTPUTS PROBABILITIES)
+ranking_lr.fs.train <- predict(lrfit.fs, train, 
+                                type="response") 
+# Predict validation (OUTPUTS PROBABILITIES)
+ranking_lr.fs.val <- predict(lrfit.fs, validation, 
+                              type="response") 
+```
+
+### LR Validation Balanced Accuracy with Feature Selection
+
+To assess the model's performance with feature selection, we build a confusion matrix and compute the balanced accuracy exactly as before.
+
+
+```{r, echo=FALSE}
+classval_lr.fs <- prob_to_class(ranking_lr.fs.val)
+confusion.matrix <- table(classval,classval_lr.fs)
+Sensitivity <- sensitivity_from_confmat(confusion.matrix)
+Specificity <- specificity_from_confmat(confusion.matrix)
+BalancedAccuracy <- (Sensitivity+Specificity)/2
+kable(confusion.matrix, type="html",digits = 2,
+      caption="Actual versus Predicted Class (Validation)")
+```
+
+The LR model with feature selection results in a validation balanced accuracy of `r BalancedAccuracy`.
+Since this is higher than the balanced accuracy of LR with all features, it's plausible our feature selection might be doing an OK job at finding the true features.
+
+## Computing ROC Curves for LR & LR with Feature Selection
+
+Here we compute the ROC curves for LR and LR with feature selection. We can see that their performance is very comparable.  
+
+Here is a video explaining AUC from Statquest: 
+https://www.youtube.com/watch?v=C4N3_XJJ-jU
+
+   * **Sensitivity** (also called the *true positive rate* or the *recall*) measures the proportion of actual positives that are correctly identified as such (e.g., the percentage of passengers that survived people who are correctly identified as having survived). _It is the same as the Class 1 accuracy._
+
+   * **Specificity** (also called the *true negative rate*) measures the proportion of actual negatives that are correctly identified as such (e.g., the percentage of patients who died who are correctly identified as not having died). _It is the same as the Class -1 accuracy._  
+
+### ROC Curves 
+
+
+```{r warnings=FALSE, message=FALSE}
+roc.data <- data.frame("Class" = classval, 
+                       "No Selection" = ranking_lr.val, 
+                       "With Selection" = ranking_lr.fs.val)
+roc.list <- roc(Class ~., 
+                data = roc.data)
+no.selection.auc <- round(auc(Class ~ No.Selection, data = roc.data), digits = 3)
+with.selection.auc <- round(auc(Class ~ With.Selection, data = roc.data), digits = 3)
+roc_plot <- ggroc(roc.list) + 
+   ggtitle("ROC Curves (Validation Set)", subtitle = "GLM without Feature Selection versus GLM with Feature Selection") + 
+   scale_color_discrete(name = "Model", 
+                        labels = c(paste("No Selection\nAUC :", no.selection.auc), paste("With Selection\nAUC :", with.selection.auc)))
+roc_plot
+```
+
+
+### Interpreting the ROC Results
+
+The validation results show that LR with feature selection produces slightly better generalizations (accuracy on the validation set) results than our original model using all the variables.  
+
+We can see this on the ROC curve as the blue line (feature selection) is almost always **bigger** than the red line (no feature selection). This results in LR with feature selection having a **higher AUC** than LR with all features, so we will use this in our entry to the contest.
+Note that we only used `r sum(significant.variables)` of the 158 features too.
+
+#Feature Selection
+#Feature Selection 1: Removing redundant and unimportant features
+```{r}
+train_raw.mc <- as.data.frame(scale(train_raw, scale = FALSE))
+train_raw.df <- cbind(train_raw, classtrain)
+
+#Searching for Redundant features
+correlation_matrix <- cor(train_raw);
+
+# Can try varying the cutoff, try 0.5 and 0.75
+highlyCorrelated <- findCorrelation(correlation_matrix, cutoff = 0.75)
+#These are the features we want to remove
+print(highlyCorrelated)
+
+train_noRedun <- train_raw.df[-c(highlyCorrelated)]
+val_noRedun <- validation_raw[-c(highlyCorrelated)]
+
+
+#Now we look for the most important features using a Learning Vector Quantization
+control <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+#training the LVQ model
+lvqmodel <- train(classtrain~., data = train_noRedun, method = "lvq", preProcess = "scale", trControl = control)
+importance <- varImp(lvqmodel, scale = FALSE)
+
+```
+
+```{r}
+imp.m <- importance$importance
+ImpFeat <- row.names(imp.m[imp.m[,1]>= 0.52, ])
+train_ImpFeat <- cbind(train_noRedun[c(ImpFeat)], classtrain)
+print(importance)
+
+plot(importance)
+```
+We can see that the first method of feature selection chose 47 of the original features as important. 
+
+#Feature Selection 2: Recursive Feature Elimination
+```{r}
+control <- rfeControl(functions=rfFuncs, method = "cv", number=10)
+
+results <- rfe(train_noRedun[,1:155], train_noRedun[,156], sizes = c(1:8), rfeControl = control)
+
+train.rfe = cbind(train_noRedun[c("X160", "X85", "X138", "X115")], classtrain)
+print(results)
+
+predictors(results)
+
+plot(results, type = c("g", "o"))
+```
+This method did not tell us anything particularily new about our data. Both of the other methods identified the 4 features listed here as important, so this mehtod was a good way to check that the others are correct. From the graph though we can see that there are 4 data points with a particularily higher accuracy than the others, indicating that these are the most important features. 
+
+#Feature Selection Method 3: LASSO Regression
+LASSO Regression, in theory, will help to sort out data that isn't independant on its own. If a certain feature is highly correlated with another, then they will be considered highly correlated and both will not be needed. This is similar to the redundant information extraction abover, however this method is said to work better that redundancy testing. 
+```{r}
+y <- apply( as.matrix(classtrain), 2, as.numeric)
+x <- apply(as.matrix(train_raw) ,2, as.numeric)
+
+cv_model <- cv.glmnet(x, y, alpha = 1)
+
+best.lambda <- cv_model$lambda.min
+best.lambda
+
+plot(cv_model)
+
+```
+
+```{r}
+lasso_model <- glmnet(x, y, alpha = 1, lambda = best.lambda)
+
+lasso.results <- coef(lasso_model)
+lasso.results[1:32,]
+```
+   So we can see that there are many irrelevent features scattered in the data (as indicated by the period or zeros). The period means that those features had regressed to zero and they feature extraction algorithm believes them to be irrelevant.
+   So we can extract the features that this model considers important and use them to test with our classification algorithms. 
+   
+```{r warnings=FALSE}
+lasso.ft <- lasso.results@Dimnames[[1]][lasso.results[,1] != 0][-1]
+
+train.lasso <- cbind(train_raw[c(all_of(lasso.ft))], classtrain)
+val.lasso <- cbind(validation_raw[c(all_of(lasso.ft))], classval)
+```
+
+
+#Classification Algorithm 1: Bayes Theorum
+Bayes theorum is supposed to work well with less training data (<10000 samples) however it assumes that each of the features is independent of each other. Which may not work out as well with chemical features, like boiling point and bonding type would be very closely related and in theory not independent. Also, I am expecting that having unnecessary features will hinder Bayes' success so I will need a good feature selection algorithms to pair with it. 
+
+First, I will look at it with all of the features and then apply the reduced feature models
+```{r}
+train_raw.df <- cbind(train_raw, as.factor(classtrain))
+val_raw.df <- cbind(validation_raw, classval)
+
+#Start with Bayes theorum on all of the data
+Bayes_allFeat <- naiveBayes(classtrain~., data = train_raw.df)
+train.bayesAllFeat.pred <- predict(Bayes_allFeat, train_raw.df)
+val.bayesAllFeat.pred <- predict(Bayes_allFeat, val_raw.df) 
+
+confusion.matrix.all <- table(classval, val.bayesAllFeat.pred)
+confusion.matrix.all
+
+
+
+#Bayes Theorum with Feature Selection 1 (redundancy/importance)
+val_Imp.df <- cbind(validation_raw[c(ImpFeat)], classval)
+Bayes_Imp <- naiveBayes(classtrain~., data =train_ImpFeat)
+
+train.bayesImp.pred <- predict(Bayes_Imp, train_ImpFeat)
+val.bayesImp.pred <- predict(Bayes_Imp, val_Imp.df) 
+
+confusion.matrix.Imp <- table(classval, val.bayesImp.pred)
+confusion.matrix.Imp
+
+#Bayes theorem on Recursive Feature Elimination
+val_rfe.df <- cbind(validation_raw[c("X160", "X85", "X138", "X115")], classval)
+Bayes_rfe <- naiveBayes(classtrain~., data = train.rfe)
+
+train.bayesrfe.pred <- predict(Bayes_rfe, train.rfe)
+val.bayesrfe.pred <- predict(Bayes_rfe, val_Imp.df) 
+
+confusion.matrix.rfe <- table(classval, val.bayesrfe.pred)
+confusion.matrix.rfe
+
+#Bayed Theorum with LASSO
+Bayes_lasso <- naiveBayes(classtrain~., data = train.lasso)
+
+train.bayeslasso.pred <- predict(Bayes_lasso, train.lasso)
+val.bayeslasso.pred <- predict(Bayes_lasso, val.lasso) 
+
+confusion.matrix.lasso <- table(classval, val.bayeslasso.pred)
+confusion.matrix.lasso
+
+```
+
+# Classification Algorithm 2: Linear Discriminant Analysis
+```{r}
+#LDA will not run without some feature reduction because of the noise in the data
+
+#LDA with Feature Selection 1  (redundancy/importance)
+test.Imp <- test[c(ImpFeat)]
+lda.fit.imp <- lda(classtrain~., train_ImpFeat, prior = c(1,1)/2)
+
+train.lda.pred <- predict(lda.fit.imp,train_ImpFeat)
+val.lda.pred <- predict(lda.fit.imp, val_Imp.df, type="response")
+
+ranking_lda.Imp.val <- val.lda.pred$posterior[,2]
+
+confusion.matrix.ldaI <- table(classval,val.lda.pred$class)
+Sensitivity <- sensitivity_from_confmat(confusion.matrix.ldaI)
+Specificity <- specificity_from_confmat(confusion.matrix.ldaI)
+BalancedAccuracy.lda.I <- (Sensitivity+Specificity)/2
+kable(confusion.matrix.ldaI, type="html",digits = 2,
+      caption="Feature Selection 1 with LDA (Validation)")
+
+
+
+#LDA with Feature Selection 2 (Recursive Feature Elimination)
+lda.fit.rfe <- lda(classtrain~., train.rfe, prior = c(1,1)/2)
+
+train.rfe.pred <- predict(lda.fit.rfe, train.rfe)$class
+val.rfe.pred <- predict(lda.fit.rfe, val_rfe.df, type="response")
+
+ranking_lda.rfe.val <- val.rfe.pred$posterior[,2]
+conf.matrix.rfe <- table(classval, val.rfe.pred$class)
+Sensitivity.rfe <- sensitivity_from_confmat(conf.matrix.rfe)
+Specificity.rfe <- specificity_from_confmat(conf.matrix.rfe)
+BalancedAccuracy.rfe <- (Sensitivity.rfe +Specificity.rfe)/2
+kable(conf.matrix.rfe, type="html",digits = 2,
+      caption="Feature Selection 2 with LDA (Validation)")
+
+
+#LDA with Feature Selection 3 (LASSO Regression)
+lda.fit.lasso <- lda(classtrain~., train.lasso, prior = c(1,1)/2)
+
+train.lasso.pred <- predict(lda.fit.lasso, train.lasso)$class
+val.lasso.pred <- predict(lda.fit.lasso, val.lasso, type="response")
+
+
+ranking_lda.las.val <- val.lasso.pred$posterior[,2]
+conf.matrix.las <- table(classval, val.lasso.pred$class)
+Sensitivity.las <- sensitivity_from_confmat(conf.matrix.las)
+Specificity.las <- specificity_from_confmat(conf.matrix.las)
+BalancedAccuracy.las <- (Sensitivity.las +Specificity.las)/2
+kable(conf.matrix.las, type="html",digits = 2,
+      caption="Feature Selection 3 with LDA (Validation)")
+
+
+roc.data <- data.frame("Class" = classval, 
+                       "Important Data" = ranking_lda.Imp.val,
+                       "RFE" = ranking_lda.rfe.val,
+                       "LASSO" = ranking_lda.las.val)
+roc.list <- roc(Class ~., 
+                data = roc.data)
+Important.data.auc <- round(auc(Class ~ Important.Data, data = roc.data), digits = 3)
+RFE.data.auc <- round(auc(Class ~ RFE, data = roc.data), digits = 3)
+LASSO.data.auc <- round(auc(Class ~ LASSO, data = roc.data), digits = 3)
+roc_plot <- ggroc(roc.list) + 
+   ggtitle("ROC Curves (Validation Set)", subtitle = "LDA with Feature Selection") + 
+   scale_color_discrete(name = "Model", 
+                        labels = c(paste("Important Features\nAUC :", Important.data.auc), paste("Recursive Feature Elim\nAUC :", RFE.data.auc), paste("LASSO Feature Selection\nAUC :", LASSO.data.auc)))
+roc_plot
+
+LDA_results <- data.frame(c(BalancedAccuracy.lda.I, Important.data.auc), c(BalancedAccuracy.rfe, RFE.data.auc), c(BalancedAccuracy.las, LASSO.data.auc))
+
+```
+By plotting the AUC scores we can see that the Important feature elimination method performed best, however the LASSO feature selection was also close. The Recursive Feature Elimination did decently on the validation set but the lack of features was hindering the LDA predictions. Although the fact that it did so well further supports the theory that its 4 features are the most important. 
+
+
+
+#Classification Algorithm 3 - Logistic Regression (Revisited)
+Logistic Regression and a relatively common but well tested method. It works well on a large range of datasets and thus, with the proper feature selection, could be a great option. 
+
+```{r, warning=FALSE, messages = FALSE}
+# Feature Reduction 1 : Importance
+lrfit.imp <- glm(classtrain~., data=train_ImpFeat,
+             family = "binomial")
+
+ranking_lr.train.Imp <- predict(lrfit.imp,train_ImpFeat, type="response") 
+ranking_lr.val.Imp <- predict(lrfit.imp,val_Imp.df,type="response") 
+
+classval_lr.Imp <- prob_to_class(ranking_lr.val.Imp)
+# Calculate confusion matrix  to see balanced accuracy
+confusion.matrix.lrImp <- table(classval,classval_lr.Imp)
+Sensitivity.lr.Imp <- sensitivity_from_confmat(confusion.matrix.lrImp)
+Specificity.lr.Imp <- specificity_from_confmat(confusion.matrix.lrImp)
+BalancedAccuracy.lr.Imp <- (Sensitivity.lr.Imp + Specificity.lr.Imp)/2
+kable(confusion.matrix.lrImp, type="html",digits = 2,
+      caption="Feature Importance with LR (Validation)")
+
+
+
+# Recursive Feature Elimination: Feature Reduction 2
+lrfit.rfe <- glm(classtrain~., data=train.rfe,
+             family = "binomial")
+
+ranking_lr.train.rfe <- predict(lrfit.rfe,train.rfe, type="response") 
+ranking_lr.val.rfe <- predict(lrfit.rfe,val_rfe.df,type="response") 
+
+classval_lr.rfe <- prob_to_class(ranking_lr.val.rfe)
+# Calculate confusion matrix  to see balanced accuracy
+confusion.matrix.lr.rfe <- table(classval,classval_lr.rfe)
+Sensitivity.lr.rfe <- sensitivity_from_confmat(confusion.matrix.lr.rfe)
+Specificity.lr.rfe <- specificity_from_confmat(confusion.matrix.lr.rfe)
+BalancedAccuracy.lr.rfe <- (Sensitivity.lr.rfe + Specificity.lr.rfe)/2
+kable(confusion.matrix.lr.rfe, type="html",digits = 2,
+      caption="Feature Importance with LR (Validation)")
+
+
+# Feature Reduction 3 : LASSO Regression
+lrfit.lasso <- glm(classtrain~., data=train.lasso,
+             family = "binomial")
+
+ranking_lr.train.lasso <- predict(lrfit.lasso,train.lasso, type="response") 
+ranking_lr.val.lasso <- predict(lrfit.lasso,val.lasso,type="response") 
+
+classval_lr.lasso <- prob_to_class(ranking_lr.val.lasso)
+# Calculate confusion matrix  to see balanced accuracy
+confusion.matrix.lr.lasso <- table(classval,classval_lr.lasso)
+Sensitivity.lr.lasso <- sensitivity_from_confmat(confusion.matrix.lr.lasso)
+Specificity.lr.lasso <- specificity_from_confmat(confusion.matrix.lr.lasso)
+BalancedAccuracy.lr.lasso <- (Sensitivity.lr.lasso + Specificity.lr.lasso)/2
+kable(confusion.matrix.lr.lasso, type="html",digits = 2,
+      caption="Feature Importance with LR (Validation)")
+
+
+roc.data <- data.frame("Class" = classval,
+                       "Important Data" = ranking_lr.val.Imp,
+                       "RFE" = ranking_lr.val.rfe,
+                       "LASSO" = ranking_lr.val.lasso)
+roc.list <- roc(Class ~., 
+                data = roc.data)
+Important.data.auc <- round(auc(Class ~ Important.Data, data = roc.data), digits = 3)
+RFE.data.auc <- round(auc(Class ~ RFE, data = roc.data), digits = 3)
+LASSO.data.auc <- round(auc(Class ~ LASSO, data = roc.data), digits = 3)
+roc_plot <- ggroc(roc.list) + 
+   ggtitle("ROC Curves (Validation Set)", subtitle = "GLM with Feature Selection") + 
+   scale_color_discrete(name = "Model", 
+                        labels = c(paste("Important Features\nAUC :", Important.data.auc), paste("Recursive Feature Elim\nAUC :", RFE.data.auc), paste("LASSO Feature Selection\nAUC :", LASSO.data.auc)))
+roc_plot
+
+
+LR_results <- data.frame(c(BalancedAccuracy.lr.Imp, Important.data.auc), c(BalancedAccuracy.lr.rfe, RFE.data.auc), c(BalancedAccuracy.lr.lasso, LASSO.data.auc))
+LR_results
+```
+Once Again, we can see that the Important Features selection method produced the best results and similarly, the Recursive feature elimination method, while still lagging behind, did fairly well, indicating that those 4 features make up the majority of the classification importance. 
+
+
+#Final Analysis
+So far we have the best performing curves from each model, LDA and Logistic Regession. To better visually compare them, we can plot the auc score for just the two highest performing combinations.
+```{r}
+roc.data <- data.frame("Class" = classval,
+                       "LDA" = ranking_lda.Imp.val,
+                       "LR" = ranking_lr.val.Imp)
+roc.list <- roc(Class ~., 
+                data = roc.data)
+LDA.auc <- round(auc(Class ~ LDA, data = roc.data), digits = 3)
+LR.auc <- round(auc(Class ~ LR, data = roc.data), digits = 3)
+roc_plot <- ggroc(roc.list) + 
+   ggtitle("ROC Curves (Validation Set)", subtitle = "Final Comparison: LDA vs LR") + 
+   scale_color_discrete(name = "Model", 
+                        labels = c(paste("LDA withImportant Features\nAUC :", LDA.auc), paste("LR with Important Features\nAUC :", LR.auc)))
+roc_plot
+
+paste("Logistic Regression Accuracy: ", BalancedAccuracy.lr.Imp)
+paste("LDA Accuracy: ", BalancedAccuracy.lda.I)
+```
+
+This provides an interesting result! While the AUC score for logistic regression is higher, which would typically indicate that it would have a better accuracy, the LDA actually has the higher balanced accuracy. Since, the LDA model produced a higher balanced accuracy and both are close in AUC scores, I would recommend the LDA model with the Important Features reduction method. 
+
+# Additional Analysis 
+To help visualize the most important features, below is a density plot of the 4 most import features from my feature selection algorithm. 
+```{r}
+rfe_data <- train.rfe
+
+x <- rfe_data[, 1:4]
+y <- rfe_data[,5]
+scales <- list(x=list(relation="free"), y=list(relation="free"))
+featurePlot(x=x, y=y, plot="density", scales=scales)
+```
+As we can see from the plots, Feature X160 is very distinguishable from the positive and negative biodegradability results. This fits with what I saw earlier when making my models. When varying the parameters for Recursive Feature Elimination, X160 often was often given as the most importnat feature. In the plot there are clear peaks where the purple dominates and a blue plateau that dominates in that range. This would thus be a very good feature to use in our analysis as it gives a clear output for most of its range. Other features, like X115 and X85 are harder to distinguish between the positive and negative biodegradability classification as there is a lot of over. Even with X138 but that feature is a little more distinguishable, with a little bit more space between the peaks.
+
+We can also visualize redundancy, its a good idea to use a scatterplot matrix of the features. 
+```{r}
+pairs(classtrain~., data = rfe_data, col=rfe_data$classtrain)
+```
+We can see that even though these were classified as the most important features, there is still a bit of redundancy. This scatterplot matrix is essentially the feature plots from above, overlayed with each other. So above, the graphs for features X85 and X115 looked similar in shape, with a different offset. With the scatterplot matrix we can see that X85 and X115 are relatively hard to distinguish, which could indicate that the recursive feature elimination method missed that. X160 on the other hand have very distint areas of red and black when overlayed with other features, indicating that it is a very good classifing feature to use. 
+
+*Provide an additional analysis and/or visualization that may be insightful to Chems-R-Us.  Use your imagination, extra credit for creativity here!  Discuss the insights your analysis provides.  Be sure to title any figures!  Comment your code so all can understand what you are doing. Feel free to use any R code from class or from the web.*
+
+# Challenge Results Analysis
+
+My challenge ID is gridlj with an AUC score of 0.9 for prediction and balanced accuracy 0.67 for feature selection.
+Overall, the AUC score indicates that the model can predict the classification for new data very well. However my feature selection results indicated that my selection method was not the most economical. This was foreshadowed when I was looking into the Recursive Feature Elimination method because that method indicated that there were only 4 important features that stood out from the rest. On the validation data, that selection model did still fair well, however it was not the most accurate. So if getting the most out of the fewest features is more important then using the features from the recursive elimination method would be best. 
+*Discuss your challenge results and their strengths and weaknesses. Feel free to include discussion of multiple entries if you made them.*
+
+
+
+# Conclusion
+
+*Provide a conclusion which summarizes your results briefly and adds any observations/suggestions that you have for Chems-R-Us about the data, model, or future work.*
+From my results, I would conclude that for in general, the best model would be the Logistic Regression model with the redundancy/importance feature selection method. This performed better overall in classification and selection. However, depending on the financial constraints of obtaining all of the features selected, the more economical option would be to go with Recursive Feature Elimination. RFE identified four of the most important features from the data, and when testing on the validation set, the model still performed well (0.915 AUC vs 0.967 AUC-IMP). So it was still able to classify new data with high accuracy, however it uses many fewer features. 
+
+
+Provide the following details:
+
+* The portal I used: *CODALAB.ORG* 
+* My challenge ID: *Gridlj*
+* My AUC scores
+   * ...for prediction: *0.9*
+   * ...for feature selection: *0.67*
+
+## Competition Entry: Saving & Uploading Your Predictions
+
+The following code creates a valid entry for the contest: 
+
+   * Predict the test data and put the ranking in `ranking_lrtest`
+      * The ranking can be any number *leading to a classification like log odds*.
+      * This means **values greater than 0 mean class 1** and **values less than 0 mean class -1**. 
+      * The results will be **ranked by AUC**.
+   * Then write the results the CSV file named `classification.csv` (You _must_ use this filename)
+   * NOTE: You may need to execute this code chunk (and the chunks above it) individually for `write.table()` to work.
+
+
+```{r cache=FALSE}
+# Predict the test data (OUTPUTS LOG-ODDS)
+ranking_lrtest <- predict(lrfit.imp, test_data.Imp)
+ranking_lrtest <- as.numeric(ranking_lrtest)
+
+# no need to convert to 0 and 1 since ranking needed for AUC.
+write.table(ranking_lrtest,file = "classification.csv", row.names=F, col.names=F)
+```
+
+## Storing Feature Selection Results
+
+   * Store your prediction for the features.
+      * This should be **binary**, where **1 means keep the feature** and **0 means don't keep feature**. 
+      * The results will be ranked by **balanced accuracy**.
+   * Then write the results into the CSV file named `selection.csv` (You _must_ use this filename)
+   * NOTE: You may need to execute this code chunk (and the chunks above it) individually for `write.table()` to work.
+
+
+```{r cache=FALSE}
+ImpFeats <- colnames(train[c(ImpFeat)])
+feat <-matrix(colnames(train),ncol=1)
+features <- matrix(0,nrow=(ncol(train)),ncol=1)
+count <- 1
+for(f in feat){
+   if(f %in% ImpFeats){
+      features[count, 1] = 1
+   }
+   count <- count + 1
+}
+
+write.table(features,file = "selection.csv", row.names=F, col.names=F)
+```
+
+## Zipping and Submitting Your Results to the Challenge
+
+   * Zip your `classification.csv` and `selection.csv` files -- we must use these exact names! -- into a single archive to generate the file `MyEntry.csv.zip` to enter the contest.
+   * The name of your zip file is not important, but **should not include spaces or characters like `(` etc**. The following code creates a zip filename that will always be unique. 
+   * NOTE:
+      * You may need to execute this code chunk (and the chunks above it) individually for `system()` to work.
+      * This code creates a zip with a filename based on time that will always be unique. This will result in many zips accumulating in your working directory!
+
+
+```{r cache=FALSE}
+# get time
+time <-  format(Sys.time(), "%H%M%S")
+
+time # verify a new value generated
+
+#This automatically generates a compressed (zip) file 
+system(paste0("zip -u MyEntry-", time, ".csv.zip classification.csv"))
+system(paste0("zip -u MyEntry-", time, ".csv.zip selection.csv"))
+
+paste0("The name of your entry file: MyEntry-", time, ".csv.zip")
+```

@@ -1,0 +1,378 @@
+---
+title: 'PreLab 8: Classification:  Cancer Diagnosis'
+author: "Jared Gridley"
+subtitle: Introduction to Data Mathematics 2021
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  html_notebook: default
+  pdf_document: default
+  toc: yes
+  header-includes: \usepackage{color}
+---
+
+# Overview
+
+In this prelab, you will be making a classifier that determines if a cancer sample is benign or malignant using LDA.
+
+Start the lab by saving the master `.Rmd` file to your local directory and editing the header to include your name.
+
+```{r setup, include=FALSE}
+# These will install required packages if they are not already installed
+# Set the correct default repository
+r = getOption("repos")
+r["CRAN"] = "http://cran.rstudio.com"
+options(repos = r)
+
+if (!require("ggplot2")) {
+   install.packages("ggplot2")
+   library(ggplot2)
+}
+if (!require("knitr")) {
+   install.packages("knitr")
+   library(knitr)
+}
+if (!require("xtable")) {
+   install.packages("xtable")
+   library(xtable)
+}
+if (!require("pander")) {
+   install.packages("pander")
+   library(pander)
+}
+if (!require("ggbiplot")) {
+  install.packages("devtools" )  # also need install ggplot2
+  library("devtools")
+  install_git("git://github.com/vqv/ggbiplot.git")
+  library("ggbiplot")
+}
+if (!require(reshape2)){
+  install.packages("reshape2")
+   library(reshape2)
+} 
+if (!require(gridExtra)){
+  install.packages("gridExtra")
+   library(gridExtra)
+} 
+if (!require(MASS)){
+  install.packages("MASS")
+   library(MASS)
+} 
+if (!require(caret)){
+  install.packages("caret")
+   library(caret)
+} 
+if (!require(dplyr)){
+  install.packages("dplyr")
+   library(dplyr)
+} 
+```
+
+This prelab uses the  Wisconsin Breast Cancer Data (WBCD) 
+
+Each sample consists of 30 features that are computed from a digitized image of a fine needle aspirate (FNA) of a breast mass. They describe characteristics of the cell nuclei present in the image. There is also a label of B or M indicating if the sample is benign or malignant.  In lecture, we refer to the classes generically as Class -1 or Class 1.  In this case we consider Class B = Class -1 and Class M = Class 1. 
+
+```{r}
+# Prepare WBCD data 
+Q.df <- read.csv("~/MATP-4400/data/wdbc.csv")
+# get the features and scale them on the entire dataset
+Q<- as.data.frame(scale(Q.df[ ,3:32],center = TRUE,scale = FALSE))
+d <- ncol(Q)
+# We give the features names
+colnames(Q)<-sprintf('V%d',1:d)
+# The labels are M for malignant and B for benign
+labels<-Q.df[,2]
+```
+
+# Constructing a Classifier with LDA
+Our task is to make a classifier that classifies tumor samples as benign (class B or -1) or malignant (class M or 1) using LDA.
+Randomly divide the data into a set consisting of 90% training and 10% testing.
+Then construct the Fisher LDA model on the training set.
+```{r, echo=TRUE}
+#Split the data into training and testing sets 
+#ss will be the number of data in the training set
+n <- nrow(Q)
+ss<- ceiling(n*0.9)
+
+#Set random seed to ensure reproducibility
+set.seed(300)
+train.perm <- sample(1:n,ss)
+
+#The first column is just the sample label, we can discard it for statics (This is the -1 in the second position)
+trainmatrix <- as.matrix(Q[train.perm , ])  #The training data is just the training rows
+testmatrix <- as.matrix(Q[-train.perm, ]) # Using -train gives us all rows except the training rows.
+#The last column is the class label, which is 1 or -1, we can split it off as the class
+trainclass <- labels[train.perm]  
+testclass <- labels[-train.perm]
+
+# Make a train.df and test.df dataframes combining labels and features
+train.df<-data.frame(trainmatrix, class=as.factor(trainclass))
+test.df<-data.frame(testmatrix, class=as.factor(testclass))
+```
+
+
+The Fisher LDA command is as follows
+
+* The data is called "train.df".  
+* The formula 'class~x' specifies the variable to be predicted on the left hand side and the features to use for prediciton on the right.   In this case, we want to predict 'class'.   The '~." means predict with all the features except 'class', which means using V1 through V30.  You can do other formulas, for example 'class ~ V1+V2' would predict the class using only features V1 and V2.
+* The "prior" option specifies weighting between classes. This uses (1/2,1/2).  The default weights by class size.
+```{r, echo=show}
+lda.fit <- lda(class~., train.df,prior=c(1,1)/2)
+#This returns the results in lda.fit. This contains lda.fit$scaling which is the vector normal to the separating hyperplane.It also returns lda.fit$means which are the means of the two different classes. 
+w<-lda.fit$scaling
+#Calculate the LDA threshold from the means and the normal vector.
+thresh <- ((lda.fit$means[1,] +lda.fit$means[2,])/2)%*%lda.fit$scaling
+```
+
+Let's do a visualization to see how the linear discriminant works. 
+The scalar projection of each point on the normal of the separating hyperplane is calculated.
+```{r, echo=show}
+#Compute the scalar projections of each class on the separating hyperplane.
+proj <- trainmatrix%*%as.matrix(lda.fit$scaling)
+pplus  <- proj[trainclass=='M'] #All the class 1 projections
+pminus <- proj[trainclass=='B'] #All the class -1 projections
+```
+
+The scalar projections on the normal for LDA for the training data are illustrated using the following histograms. They show the scalar projections for each class and the value of the threshold used to separate them.  
+```{r, echo=show}
+# echo=FALSE lets you add a plot without showing code
+#Function to plot a pair of histograms and a threshold
+histopair <-function(
+  pminus, # negative data scalar projections
+  pplus,  # postive data scalar projections
+  thresh, # threshold
+  yy=c(0,60),  # Bin Size
+  label2="Plus",  # Label positive
+  label1="Minus", # Label negative
+  bwid,  # Bin widths
+  title)  # Title of plot
+  {
+  require(ggplot2); require(gridExtra)
+  hist1 <- ggplot(as.data.frame(pminus), aes(pminus)) + 
+           geom_histogram(col="blue",fill="blue", binwidth=bwid) +
+           ggtitle(title)
+  
+  hist2 <- ggplot(as.data.frame(pplus),  aes(pplus))  + 
+           geom_histogram(col="red",fill="red", binwidth=bwid)
+
+  df <- data.frame(x1=c(thresh,thresh),y1=c(yy[1],yy[2]))
+  pmin <- min(pminus,pplus)
+  pmax<- max(pminus,pplus)
+  me1 <- hist1 + expand_limits(x=c(pmin,pmax)) +  
+         geom_line(data=df,aes(x=x1,y=y1)) + xlab(label1)
+  me2 <- hist2 + expand_limits(x=c(pmin,pmax)) +
+         geom_line(data=df,aes(x=x1,y=y1)) + xlab(label2)
+  pl <- vector("list",2)
+  pl[[1]] <- me1;  pl[[2]]<-me2;
+  grid.arrange(grobs=pl,ncols=1)
+}
+
+#Using the histopair command defined above make histogram plots
+histopair(pminus,pplus,thresh,label1="Class -1=B Benign Data",
+          label2="Class 1=M Malignant Data", bwid=0.3,
+          title="WBCD Scalar Projections for LDA") 
+```
+
+## Performance of Model
+
+* Now we calculate how well the LDA model does on WBCD training and testing data in terms of class M (or 1) accuracy, class B (or -1) accuracy, and balanced accuracy.
+
+* Class 1 accuracy is the number of correctly classified points in Class 1 divided by the number of points in Class 1.  For this problem, class M is the same as Class 1.
+
+
+* Class -1 accuracy is the number of correctly classified points in Class -1 divided by the number of points in Class -1.  For this problem, class B is the same as Class -1.
+
+* Balanced accuracy is the mean of the Class 1 accuracy and the Class -1 accuracy or equivalently the mean of the Class B and Class M accuracies for this problem. 
+
+
+```{r, echo=show}
+#########################################################################
+#Find out how well the calculated hyperplane classifies the training data
+#The predict command understands the structure returned by lda and creates a list of classes predicted for the second argument
+#In this case, we see how well we did with the training data
+# $class contains the predicted lables 
+# use the predict function for the classifier lda.fit to predict the train.df
+train.pred <- predict(lda.fit,train.df)$class
+
+# Table command counts the actual versus the predicted labels for the training data. The result is stored in a confusion matrix.  
+confusion.matrix<-table(trainclass,train.pred)
+```
+The predictions on the training data results in the following confusion matrix. The rows are  the actual classes and the columns are the predicted classes.
+```{r, results="asis"}
+# kable formats a table to look nice in notebook
+kable(confusion.matrix, digits = 2)
+```
+
+* 'confusionmatrix[1,1]=321' is the number of B points that are correctly classified.
+* 'confusionmatrix[2,2,]=175' is the number of M  points that are correctly classified.
+* 'confusionmatrix[1,2]=1' is the number of B  points misclassified as M.
+* 'confusionmatrix[2,1,]=16' is the number of M  points misclassified as B.
+
+Calculate the balanced accurcy on the training data. 
+```{r, echo=show}
+# Calculate the accuracy of each class using the entries of the confusion matrix
+accneg <-confusion.matrix[1,1]/(confusion.matrix[1,1]+confusion.matrix[1,2]) 
+accplus <-confusion.matrix[2,2]/(confusion.matrix[2,1]+confusion.matrix[2,2]) 
+# Calculate the balanced accuracy
+accbal<-(accplus+accneg)/2
+# note how the next text section display results in the text e.g. '`r 100*accplus`% 
+```
+The LDA method correctly classified 
+`r 100*accplus`% of the positive training data 
+and
+`r 100*accneg`% of the negative training data. 
+The balanced training accuracty was
+ `r 100*accbal`%.
+
+## $\color{blue}{Exercise~1}$
+To estimate how well the model model will do on future data, we need to know the testing set accuracies.   
+Predict the testing data using LDA.   Calculuate the confusion matrix. Calculate the class M/1 accuracy, class B/-1 accuracy, and balanced accuracy on the testing data.
+
+```{r}
+test.pred <- predict(lda.fit,test.df)$class
+
+test.confusion.matrix<-table(testclass,test.pred)
+
+kable(test.confusion.matrix, digits = 2)
+
+test.accneg <-test.confusion.matrix[1,1]/(test.confusion.matrix[1,1]+test.confusion.matrix[1,2]) 
+test.accplus <-test.confusion.matrix[2,2]/(test.confusion.matrix[2,1]+test.confusion.matrix[2,2]) 
+
+test.accbal<-(test.accplus+test.accneg)/2
+test.accbal
+```
+
+ 
+## $\color{blue}{Exercise~2}$
+Consider the following new point consisting of all ones.
+Use the predict function to predict if this point is benign or malignant using LDA?  What is the prediction?
+```{r}
+# this makes a point consisting of all ones.
+newpoint<-as.data.frame(matrix(1,ncol=30))
+colnames(newpoint) <- colnames(train.df[,-31])
+# Insert your code here
+
+ones.pred <- predict(lda.fit,newpoint)$class
+ones.pred
+```
+
+## $\color{blue}{Exercise~3}$
+
+# The Mean Method
+
+In class you learned the following method to create the the normal w and threshold t of the classifier using the Mean Method.
+Let's try it on the WBCD data.
+
+1. Suppose `D` is the data matrix.
+2. Let `Cplus` be rows of `D` having positive class and Cneg be the rows of D having negative class.
+3.  Set the `Mplus` to be the mean of `Cplus` and `Mneg` to be the mean of `Cneg`.  
+4. The the normal vector to the Mean Method's classifying hyperplane is  $$w= \frac{Mplus - Mneg}{||Mplus - Mneg||}$$
+5. We need one more thing to fully specify the separating hyperplane: a point that lies on the hyperplane.  An intuitive choice for this point is halfway between the mean of the positive and negative classes:
+$$P  =  (Mplus + Mneg)/2$$
+6. So the threshold for the equation of the classifying hyperplane is then
+$$t = P \cdot w$$
+7.  The equation for the classifying hyperplane for the mean method is then
+$$x \cdot w = t$$
+
+8. In this lab we  classify a new point, $u$, as Class 1 if $u\cdot w-t> 0$, and  then Class  Class -1 otherwise.    Note this assumes that any scaling or centering has been accounted for when creating $u$. 
+
+*** Warning: Never use the Mean Method after this class. We just made it up for educational purposes. LDA and other methods should give you better results almost always. ***
+
+
+## Create the mean method classifier. 
+
+```{r}
+# Prepare WBCD training data  by dropping labels
+Q<- as.matrix(train.df[,-31])
+# Make Cplus the matrix containing the positive data
+Cplus=Q[train.df$class=='M',]
+# Make Cplus the matrix containing the positive data
+Cneg=Q[train.df$class=='B',-31]
+
+# Calculate Means
+Mplus<-colMeans(Cplus)
+Mneg<-colMeans(Cneg)
+# Compute the normal to the hyperplane w
+w<-(Mplus-Mneg)
+w<-w/norm(w,"2") # w/norm(w)
+w<-matrix(w,nrow=length(w))
+# Calculate threshold t
+t<- ((Mplus+Mneg)%*%w)/2
+t<-as.numeric(t) # make sure t is a scalar...not a matrix
+```
+Now we predict the training data.  
+
+```{r}
+# Predict the training data in Q  by checking which side of the hyperplane the points are on using the sign function. 
+ypred <- sign(Q%*%w-t)
+# Added this extra step to handle the case if the point is exactly on the hyperplane.  This happens very rarely when using real numbers.   
+ypred[ypred==0]<-1
+
+# Switch to B and M
+ypred <- recode(as.factor(ypred), "1"="M", "-1" ="B")
+```
+
+Now we calculate the accuracy.
+```{r}
+# Table command counts the actual versus the predicted labels for the training data. The result is stored in a confusion matrix.  
+confusion.matrix<-table(train.df$class,ypred)
+```
+The predictions on the training data by the mean method results in the following confusion matrix. The rows are  the actual classes and the columns are the predicted classes.
+```{r,results="asis"}
+# kable formats a table to look nice in notebook
+kable(confusion.matrix, digits = 2)
+```
+
+Let's do a visualization to see how the linear discriminant works for Mean Method. The scalar projection of each point on the normal of the separating hyperplane is calculated.
+
+```{r, echo=show}
+#Compute the scalar projections of each class on the separating hyperplane.
+proj <- trainmatrix%*%w
+pplus  <- proj[trainclass=='M'] #All the class 1 projections
+pminus <- proj[trainclass=='B'] #All the class -1 projections
+```
+
+#Using the histopair command defined above make histogram plots
+
+```{r, echo=show}
+histopair(pminus,pplus,thresh,label1="Class -1=B Benign Data",
+          label2="Class 1=M Malignant Data", bwid=0.3,
+          title="WBCD Scalar Projections for LDA") 
+```
+What is the balanced accuracy for the Mean Method?
+
+## $\color{blue}{Exercise~4}$
+Predict the testing data using the Mean Method.   Calculuate the confusion matrix. Calculate the class M/1 accuracy, class B/-1 accuracy, and balanced accuracy on the testing data.
+ 
+
+```{r}
+# Predict the training data in Q  by checking which side of the hyperplane the points are on using the sign function. 
+ypred <- sign(as.matrix(test.df[,-31])%*%w-t)
+# Added this extra step to handle the case if the point is exactly on the hyperplane.  This happens very rarely when using real numbers.   
+ypred[ypred==0]<-1
+
+# Switch to B and M
+ypred <- recode(as.factor(ypred), "1"="M", "-1" ="B")
+```
+
+Now we calculate the accuracy.
+```{r}
+# Table command counts the actual versus the predicted labels for the training data. The result is stored in a confusion matrix.  
+confusion.matrix<-table(test.df$class,ypred)
+
+kable(confusion.matrix)
+```
+
+Which method (LDA or Mean Method) works best on the testing set?
+```{r}
+accneg <-confusion.matrix[1,1]/(confusion.matrix[1,1]+confusion.matrix[1,2]) 
+accplus <-confusion.matrix[2,2]/(confusion.matrix[2,1]+confusion.matrix[2,2]) 
+# Calculate the balanced accuracy
+accbal<-(accplus+accneg)/2
+accbal
+```
+
+
+LDA performs better at (0.9619048) compared to the mean method at (0.9565624)
+Congratulations you have finished PreLab 8. Go do the quiz. 

@@ -1,0 +1,369 @@
+---
+title: 'IDM Lab 5: Mini Project'
+author: "Kristin Bennett and John Erickson"
+date: '2/13/2021'
+output:
+  beamer_presentation: default
+  slidy_presentation: default
+  ioslides_presentation: default
+---
+
+```{r setup, include=FALSE}
+# Required R package installation:
+# These will install packages if they are not already installed
+# Set the correct default repository
+r = getOption("repos")
+r["CRAN"] = "http://cran.rstudio.com"
+options(repos = r)
+
+
+if (!require("ggplot2")) {
+  install.packages("ggplot2")
+  library(ggplot2)
+}
+if (!require("knitr")) {
+  install.packages("knitr")
+  library(knitr)
+}
+
+if (!require("matlab")) {
+   install.packages("matlab")
+   library(matlab)
+}
+
+if (!require("ggbiplot")) {
+   devtools::install_git("https://github.com/vqv/ggbiplot.git")
+   library(ggbiplot)
+}
+
+if (!require("scatterplot3d")) {
+  install.packages("scatterplot3d")
+  library(scatterplot3d)
+}
+
+if (!require("gplots")) {
+  install.packages("gplots")
+  library(gplots)
+}
+
+if (!require('fields')) {
+  install.packages("fields")
+  library(fields)
+}
+
+if (!require('dplyr')) {
+  install.packages("dplyr")
+  library(dplyr)
+}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+[This notebook should be knit to slidy.]
+
+Your team has formed a data analytics consulting company. With global warming, mosquito borne illnesses like Zika are becoming an ever-increasing threat. *You have been tasked with helping the fight to stop the Zika virus.* Your job is to use existing data to help understand how Zika may cause a severe birth defect called microcephaly (small head size).  The Zika Virus is spread by mosquito bites and by sexual contact. Unborn babies are most at risk from Zika virus.  The effect on Zika on unborn babies can be devasting. 
+
+# About Zika
+
+* Zika virus disease is caused by a virus transmitted primarily by Aedes mosquitoes, which bite during the day.
+* Symptoms are generally mild and include fever, rash, conjunctivitis, muscle and joint pain, malaise or headache. Symptoms typically last for 2–7 days. Most people with Zika virus infection do not develop symptoms.
+* Zika virus infection during pregnancy can cause infants to be born with microcephaly and other congenital malformations, known as congenital Zika syndrome. Infection with Zika virus is also associated with other complications of pregnancy including preterm birth and miscarriage.
+* An increased risk of neurologic complications is associated with Zika virus infection in adults and children, including Guillain-Barré syndrome, neuropathy and myelitis.
+
+Source: WHO Website https://www.who.int/news-room/fact-sheets/detail/zika-virus
+
+# Background
+
+* Researchers led by Dr. Bennett used existing data from *in-vitro* models of human brain development based on embryonic stem cells to understand when embryos are particularly susceptible to Zika infection resulting in microcephaly. 
+* These models produce the layers of the cerebral cortex in a petri dish. 
+* The study is uses data from the Cortecon web site. The data consists of RNA transcription data measured as the layers of the cerebral cortex develop  at nine different time points between 0 and 77 days.
+http://cortecon.neuralsci.org/
+* An analysis of this data was published in a 2019 paper.
+https://www.nature.com/articles/s41598-019-39318-8
+
+
+
+# Background: Analytical Methods in Paper
+
+* **Clustering** was used to identify the stages of development in humans. 
+* PCA, data visualization, and log odds ratio analysis were  used to show when these stages occur. 
+* An advanced visualization, called a **SWOT Clock** (Susceptibility Window Ontological Transcription) Clock, is available at https://semnext.tw.rpi.edu/swotclock/
+
+# Analysis of Microcephaly Disease Genes on Human Data
+
+```{r out.height = '80%'}
+include_graphics("/academics/MATP-4400/Lab5/swot_micro.png")
+```
+
+# What the SWOT Clock Shows
+
+* Given a set of genes associated with a disease, the SWOT clock can be used to help identify time periods of cortical development that may be susceptible to changes in those genes. 
+* Recall each cluster of gene represents a distinct stage of development.  If a set of genes occurs more than expected (a.k.a enriched) for a given stages then it is likely that brain development may be impacted by changes in the activities of those genes during that stage.  
+* The SWOT Clock provides a visualization and a statistical analysis of the log odds ratio of each cluster along with its p-value (as discussed in class).
+* Since the set of disease genes are significantly enriched in a cluster, then the time period associated with that cluster is a window of susceptibility. A cluster is significantly enriched if it has a positive log odds ratio and a p-value $<0.1$.  
+
+# Prior results for Zika and Microcephaly for Humans 
+
+* The prior study found that in humans that genes associated with microcephaly are enriched for the Neuroectoderm Stage (`Cluster 2`). Genes associated with microcephaly and changed by Zika infection have an even stronger enrichment. 
+**This suggests that human embryos are particularly susceptible to Zika-induced microcephaly in the first trimester, possibly before the mother even know she is pregnant.**
+
+# The Assignment: Overview
+
+Your consulting company is joining this research effort. *Your job is to perform a "Windows of Susceptibility"  (WOS) analysis based on mouse data from a similar brain-in-a-dish model for mice.* 
+
+* You will analyze the same sets of microcephaly-associated genes and Zika-associated genes to see if you can detect a similar window of susceptibility for Microcephaly and Zika-induced microcephaly in mice. 
+* You will also see if you can detect windows of susceptibility to other diseases from a list of brain diseases previously analyzed with respect to humans (BrainDiseaseV2.xlsx).
+
+# The Assignment: Deliverables 
+The Lab 5 Mini-Project has the following deliverables:
+
+0. Complete Prelab 5 by Wednesday Lab as individual.
+1.  Find 5 stages of development in the mouse corticogenesis data using clustering.  Use the clusters and code found in PreLab5 but not that the cluster names are changed.
+    + Determine the order that  the clusters  occur in time.  Rename the earliest cluster A, the next cluster B, ..., and the last cluster E.  
+    + Provide a biplot colored by cluster using the ordered cluster names A,B,C,D,E.  We will call these the stages of development.  
+    + Create a heatmap that visualizes the results **(3 pts)**
+    
+# The Assignment: Deliverables (Continued)
+
+2.  Develop your own mouse WOS analysis and visualization and apply to Zika related genes in `~/MATP-4400/data/Zikamicrocephaly_data.csv` **(10 pts)**
+Specifically
+    + Show the Zika genes on the cluster biplot (a.k.a SWOT Clock) visualization as discussed in class and below.
+    + Determine the log odds ratio of Zika disease for each cluster and analyze which clusters are enriched (i.e. positive with p-value $< 0.1$). 
+    + Discuss your findings. 
+    
+# The Assignment: Deliverables (Continued)
+
+3. As a group select  **at least three other diseases**  (select a unique disease for each team member)  from  `~/MATP-4400/data/BraindiseasesV2.xlsx'. You want to pick ones that show WOS in mouse. Each group member should do at least one individual disease.
+
+    + Download the disease genes from the SWOT Clock website for those diseases. 
+    
+    + Determine if there is any other evidence of windows of susceptibility (WOS)  (i.e. significantly enhanced clusters) in mice for these diseases. (**10 pts** for the one appearing in your notebook)
+    
+    + Download the genes by selecting this disease in the human SWOT Clock at
+        https://semnext.tw.rpi.edu/swotclock/
+     and then using the `+` and `download heatmap data` functions to get the file `disease_heat_map_data.csv`
+     
+    + Show the  genes on the cluster biplot (a.k.a SWOT Clock) visualization **(3 pts)**
+    
+# The Assignment: Deliverables (Continued)  
+
+  3. Continued
+
+  + Determine the log odds ratio of disease for each cluster **(3 pts)**
+    
+  + Analyze which clusters are enriched (i.e. positive with p-value $<0.1$).
+    
+  + Discuss your results and how they compare to the human results obtained from the website. Look up the disease. Discuss what it is and it's impact on humans. 
+   
+# The Assignment: Deliverables (Continued)
+   
+4. Each group member should do some additional analyses or visualizations that further develop some point of the above analysis. Feel free to use other packages in R beyond those discussed in class. These analyses must be unique for each group member.
+    + Discuss your method and findings **(10 pts)**
+5. **Each group member will hand in an individual notebook  to LMS on 3/9** . 
+    + Your notebook should include the individual analysis of Zika and *one additional disease*. 
+    + This notebook should include the creative analysis of that individual member only. 
+    
+# The Assignment: Deliverables (Continued)
+6. Create a group presentation for your group with your results on Zika and the diseases analyzed by your group. Make sure the presentation slides includes  the name of your company and all of the team members who participated in the making of the presentation.
+ Record a video of the presentation.  The presentation should be between 7 to 9 minutes (teams of size 5) and between 8 to  10 minutes (teams of size 6). Make sure each person says something in the lab.  We will watch the presentations in Lab on 3/10.  Please be sure to attend the lab associated with your team. 
+    +  Upload your presentation to LMS.  **(5 pts)** 
+    +  All team member should say part of the presentation in the video.  **(5 pts)**
+    +  If one of your team members becomes ill or otherwise cannot participate in the video.  Make all due diligence to contact he or she.   If necessary, create multiple shorter videos.  Do not list team members who did not particpate in the creation of the video.   
+7. A template R notebook for your mini-project is provided in `Lab5-notebook.Rmd`
+
+8.Turn in a pdf of your presentation.  Provide a link to your video. 
+
+# The Assignment: Deliverables (Continued)
+
+9. Extra credit opportunities **(3 pts total possible) ** You can potential get credit for one of these opportunities .  
+    +  Research one of the diseases that you found to be enhanced for a stage im greater depth.  Look up its prevalence and present impact in the United States or World.  Look at published research papers, and see if you can find any support for your findings.  This evidence could be in humans or mouse. Write up your results. 
+    +  Figure out how to make a pretty heatmap that shows the temporal ordering better as well as the stage. The dendrogram doesn't always provide the best ordering. For those who are mathematically inclined,  one hint is to use the `atan2()` command to order the genes by their angle in the pca biplot since this provides a nice temporal ordering. 
+    + Create you own analysis that goes beyond the analyses covered in class.  For example, the analysis might involve several steps and include R functions that are not covered in class.  Be sure to discuss why you did this analysis and your findings.  
+  
+# Example Analysis: Stages of Corticogenesis
+
+Recall that we found five stages of development in the Prelab. 
+
+* Each row in the dataset is a gene; the columns are days at which the samples are collected. 
+* The entries in the columns are the amount of RNA detected on that day in the mouse embryo cerebral cortex.  
+* We can use `rowMeans()` to see that this data has already been scaled, so each **row** has *mean 0 and sd 1*.  
+* Scaling has been done so that the analysis can focus on the shape.  
+
+# Example Analysis: Stages of Corticogenesis
+Here is the mapping of the columns to their actual meanings:
+
+   + `DayNeg8` = 8 days before birth
+   + `DayNeg4` = 4 days before birth
+   + `Day0` = Day of birth
+   + `DayPos1`  = 1 day after birth
+   + `DayPos7` = 7 days after birth
+   + `DayPos16` = 16 days after birth
+   + `DayPos21` = 21 days after birth 
+   + `DayPos28`= 28 days after birth
+
+# Example: Find the Stages of Development using PCA + K Means
+```{r,echo=FALSE}
+# Read in the dataset; create the matrix
+Mouse.df <-read.csv("~/MATP-4400/data/MouseHomologData.csv",row.names = 1)
+# Use shorter column names
+colnames(Mouse.df)<-c("-8","-4","0","1","7","16","21","28")
+
+Mouse.matrix <- as.matrix(Mouse.df)
+# Perform the PCA
+my.pca <- prcomp(Mouse.matrix,retx=TRUE,center=TRUE, scale=TRUE)
+# Check out explained variance
+screeplot(my.pca, type = "lines")
+# Now perform the Kmeans clustering
+set.seed(300)
+k <- 5
+km <- kmeans(Mouse.matrix,k)
+kcluster <- km$cluster
+
+```
+
+# Example Analysis: Visualization
+
+We can now visualize the cluster using a [biplot](https://en.wikipedia.org/wiki/Biplot) of two components generated by PCA which explain most of the variance. The [scree plot](https://en.wikipedia.org/wiki/Scree_plot) suggests that PC3 might also contain signficant variance.
+
+
+# Example Analysis: Biplot of all the genes
+
+*What groups (clusters) peak on what days?* (yours will have different names and be in order).
+```{r,echo=FALSE}
+# Calculate x and y scale limits for the biplot
+t<-1.2*max(abs(my.pca$x[,1:2]))
+# Generate the biplot using ggbiplot
+p <- ggbiplot(my.pca,
+            choices=c(1,2),  # Use PC1, PC2
+            alpha=.1,        # Make dots transparent
+            varname.adjust=1.5,  # Move variables names out a bit
+            scale =0,       # Don't rescale data
+            groups=as.factor(km$cluster))
+p + ggtitle('Mouse Biplot for PC1 and PC2') + xlim(-t,t) + ylim(-t,t) # title plot and make square
+```
+
+
+
+# Example Analysis: Cluster and PCA  Analysis
+
+## Analysis of Development Stages Susceptible to Lisencephaly
+
+We demonstrate the analysis you should do. Start by reading in the dataset, creating a dataframe and generating a vector of disease symbols.
+
+```{r}
+disease.df <-read.csv("~/MATP-4400/data/Lissencephaly_heat_map_data.csv",
+                      row.names = 1)
+disease_symbols <- intersect(as.character(disease.df$symbol),
+                             as.character(rownames(Mouse.df)))
+```
+
+# P-value and Logodds Calculation: Fisher Exact Test
+
+Compute the *log odds ratio* and *p-values* by Fisher exact test for each cluster using the helper function `cluster_pvals()`. *Do not edit this function!* 
+
+```{r}
+
+# Define cluster_pvals; DO NOT CHANGE!
+cluster_pvals <- function(k, km, myplot.df) {
+  # Inputs: k, km, myplot.df 
+  # Returns: results (dataframe with clusters, pvalues, logodds)
+  # Set the p-value and logodds to 0
+  pvalue <- zeros(k,1)
+  logodds <- zeros(k,1)
+  results <- cbind.data.frame(cluster=1:k, pvalue, logodds)
+  classdisease <- zeros(k,1)
+  classall <- as.vector(table(km$cluster))
+  # use dplyr to calculate counts for each cluster 
+  temp <- myplot.df %>% 
+        dplyr::group_by(cluster) %>% 
+        dplyr::count(name="freq")  # Creates 'freq' column!
+  classdisease[temp$cluster] <- temp$freq
+  classlogodds <- zeros(k,2)
+  totaldisease <- sum(classdisease)
+  totalall <- sum(classall)
+  # Calculate the log odds ratio for the disease
+  for (i in 1:k) {
+     n11 <- classdisease[i] +1 # genes in disease in cluster i 
+     n21 <- totaldisease- classdisease[i] +1 # genes in disease not in cluster i
+     n12 <- classall[i]-n11+1 # genes not in disease and in cluster i
+     n22 <- totalall- n11-n21 -n12+1; # genes not in disease and not in cluster 
+     res <- fisher.test(matrix(c(n11,n21,n12,n22), 2, 2))
+    results[i,]$pvalue <- res$p.value
+    results[i,]$logodds<- log((n11*n22)/(n12*n21))
+  }
+  return(results)}
+```
+
+# P-value and Logodds Calculation: Fisher Exact Test
+```
+# Applying the Helper Function and display the results
+
+plot.df <- cbind.data.frame(my.pca$x, cluster=as.factor(km$cluster))
+myplot.df<-plot.df[disease_symbols,]
+
+# Apply cluster_pvals using the parameters just generated
+clusters <- cluster_pvals(k, km, myplot.df)
+
+threshold <- 0.1  # Normally set to 0.1
+
+# Evaluate across our results; create new column
+clusters <- 
+  clusters %>% 
+  mutate(enriched = if_else(pvalue <= threshold & logodds > 0, TRUE, FALSE))
+
+# View results
+kable(clusters)
+
+```
+
+# Windows of Susceptiblity Analysis of LLisencephaly
+
+```{r, echo=FALSE}
+# Applying the Helper Function and display the results
+
+plot.df <- cbind.data.frame(my.pca$x, cluster=as.factor(km$cluster))
+myplot.df<-plot.df[disease_symbols,]
+
+# Apply cluster_pvals using the parameters just generated
+clusters <- cluster_pvals(k, km, myplot.df)
+
+threshold <- 0.1  # Normally set to 0.1
+
+# Helper function to determine enrichment
+enriched <- function(p.value,logodds,p.threshold=0.1){
+  if ((p.value <= p.threshold) && (logodds > 0)) {
+    return(TRUE)
+  } else {return(FALSE)}
+}
+# Evaluate across our results; create new column
+clusters$enriched <- mapply(enriched, clusters$pvalue, clusters$logodds,threshold)
+
+# View results
+kable(clusters)
+
+```
+
+Here we see that **Cluster `r which(clusters$enriched)`**  is enriched because it has *p-value $\le$ `r threshold`* and the *logodds ratio  is positive*.  Stage `r which(clusters$enriched)` peaks at Day 7, so we would conclude that *Lisencephaly is associated with cortical development at Day 7 in the mouse.*  
+
+Note that in your analysis, you should rename the clusters so they are in *temporal order* so that Stage A = cluster that appears first, etc and use those names.  
+
+# Example Analysis: Windows of Susceptibility Visualization.
+
+Develop your own `windows of susceptibility visualizations`.
+
+Your visualiation should be a biplot that shows only the genes in the disease. The following is an example of what the graph you create should look like.  It uses the original PCA that you calculated on the full data set above, but it only plot genes corresponding to the disease of interest. Each gene is represented by its scalar projection on PC1 and PC1 and is colored by its stage.  Note that vectors representing the eight days are shown as line segments.  These are the projections of the axes on PC1 and PC2.  Note on yours the clusters should be ordered and called A,B,C,D,E  so they represent the stages. Also note, that the genes in the disease are plotted using the score computed using all of the data. *You should only call 'prcomp' once in your entire project.() 
+
+To get practice making your own customized plots, construct this biplot using *ggplot*.   The plot below is made by using 'geom_point' to plot each gene as a point and  'geom_segment' to print the segments representing the Days, and 'geom_text' to print the labels on the axes.  Do not use the 'ggbiplot' command.
+Instead construct the plot yourself.  
+
+# Example Analysis: Windows of Susceptibility Visualization.
+
+
+```{r, echo=FALSE, out.width = '75%'}
+include_graphics("/academics/MATP-4400/Lab5/lisencephaly_biplot.png")
+```
+
+
+
+

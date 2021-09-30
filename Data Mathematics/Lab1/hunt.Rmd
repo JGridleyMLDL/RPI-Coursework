@@ -1,0 +1,126 @@
+---
+title: "IDM Scavenger Hunt Notebook"
+author: "Jared Gridley"
+subtitle: IDM Prelab 1
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+# This cell is run to load essential libraries. It will not appear in the markdown notebook.
+
+knitr::opts_chunk$set(echo = TRUE)
+
+if (!require("rmarkdown")) {
+  install.packages("rmarkdown")
+  library(rmarkdown)
+}
+
+# Ensure required libraries are loaded
+if (!require("digest")) {
+  install.packages("digest")
+  library(digest)
+}
+if (!require("whoami")) {
+  install.packages("whoami")
+  library(whoami)
+}
+
+```
+
+##  R Notebook
+
+This is an [R Markdown Notebook](http://rmarkdown.rstudio.com) created for *Intro to Data Mathematics (MATP-4400)*.   
+
+## Navigating the File System Using RStudio
+
+The **Files** tab is used to explore the directories on the IDEA Cluster that you have access to. These include your personal home directory, the course directory and other directories you have been granted access to, perhaps as part of a research project. You have been granted *read*, *write* and *execute* permissions within your home directory, and *read* access to the course directories. 
+$\color{blue}{Exercise:\ Scavenger\ Hunt}$
+
+1. Click into the *Files* tab
+2. Click on the word `Home` to ensure you are in your `Home` directory
+3. $\color{blue}{What\ subdirectories\ and\ files\ do\ you\ see?}$ If you don't see `MATP-4400`, then email instructors to get help on what to do. 
+
+4. Click on + `New Folder` in the Files Pane and make a new folder called `IDM_work` in your home directory.
+5. Poke around the directories you see, and locate and click on the file `hunt.Rmd` 
+    + Notice that the contents of this file have been loaded into the Editor pane, usually found in the upper left quadrant of your screen.
+    + This file is a simple example of an **R Markdown** file, which you will be using throughout this course. It mixes nicely formatted text with blocks of R code
+    + Use `Save As ...` in the File menu to save the `hunt.Rmd` to your `IDM_work` directory.
+    + Follow the instructions in the document for executing the code block
+5. Immediately above the Editor pane, find the menu item `Knit`.
+    + Click on the down arrow next to `Knit` and select `Knit to HTML Document`.
+    + Click on the down arrow next to `Knit` and select `Knit to PDF Document`.
+    + Download this PDF (if desired) by clicking on the Download icon (upper right in the PDF viewer)
+6. $\color{blue}{What\ is\ your\ secret?}$ Copy and paste your "secret" into Prelab1 quiz provided on LMS. 
+    
+## Executing an R code chunk within an R Notebook
+
+R Notebooks contain R code blocks, usually highlighted with a grey background. When you execute code blocks within the notebook, your results appear beneath the code. 
+
+Try executing the chunk below by placing your cursor inside it and clicking the green *Run* button in the upper right of the chunk or  by pressing *Ctrl+Shift+Enter*. You'll see the result appear in the *Console* pane.
+
+```{r}
+# Assigning a value (using the left arrow)
+four <- 2 + 2
+eight <- four * 2
+
+# Viewing a value previously assigned
+four
+eight
+```
+
+## Executing R code line-by-line within an R Notebook
+
+In the RStudio code editor you can execute individual commands in the code blocks of your notebook by placing the cursor anywhere in the line of code you wish to run and then pressing `<Cntl>+<Enter>` on Linux or PC or `<Command>+<Return>` on Mac. You'll see the commands echoed in the console, with the results (or errors!) immediately following. 
+
+Within your copy of the R notebook open in RStudio, practice selecting and executing individual lines of code on the code block below.
+
+
+```{r}
+# The objects `p1` and `p2` are R class `numeric`, meaning that they are floating point numbers that you can use in the usual numeric operations to them.  We use <- to assign them values.   
+p1 <- 6101. 
+p2 <- 743
+p3 <- p1 + p2
+
+# we display p3
+p3
+
+# we examine the type of p3
+class(p3)
+```
+
+
+## Writing R Code Chunks Within an R Notebook
+
+To add code to an R notebook, simply insert code into an empty code block.
+Insert code here to set `a` to `365` and `b` to `101` and then calculate `a * b`. Execute the notebook.  Save the notebook.
+
+```{r}
+# Insert your code here...
+
+```
+
+## Executing R and rendering an R notebook with the `Knit` button
+
+You may also execute your code and "render" markdown text by clicking on the **Knit** button (immediately above the Editor pane). 
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the **Knit to HTML** button or press *Ctrl+Shift+K* to preview the HTML file).
+
+Knit this notebook to get your secret. 
+
+```{r}
+
+# Get the users account name
+name <- username() 
+
+# Calculate the md5 hash of the user's account name
+hash <- digest(name)
+
+# print(paste0("Your secret: ", hash))
+
+```
+
+<h2><span style="color:green">Congratulations! Your secret is: `r hash`</span></h2>
+
+

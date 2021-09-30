@@ -1,0 +1,341 @@
+---
+title: 'PreLab 6: Eigenfaces'
+author: "Your Name Here"
+date: "3/17/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Completing Lab
+If you are unable to connect to the Rstudio server please contact Prof. Bennett bennek@rpi.edu and Dr. Erickson erickj4@rpi.edu immediately.
+
+```{r setup, include=FALSE}
+# These will install required packages if they are not already installed
+
+# Set the correct default repository
+r = getOption("repos")
+r["CRAN"] = "http://cran.rstudio.com"
+options(repos = r)
+
+
+# These will install packages if they are not already installed
+if (!require("devtools")) {
+   install.packages("devtools")
+   library(devtools)
+}
+
+if (!require("ggplot2")) {
+   install.packages("ggplot2")
+   library(ggplot2)
+}
+if (!require("knitr")) {
+   install.packages("knitr")
+   library(knitr)
+}
+if (!require("ggbiplot")) {
+   devtools::install_git("https://github.com/vqv/ggbiplot.git")
+   library(ggbiplot)
+}
+
+if (!require(reshape2)){
+  install.packages("reshape2")
+   library(reshape2)
+} 
+if (!require(gridExtra)){
+  install.packages("gridExtra")
+   library(gridExtra)
+} 
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#  Overview
+
+This prelab will help you learn to work with image data and prepare you to make a facial recognition system in Lab 6.  
+ 
+# Examine Data
+
+First  familiarize yourself with the dataset, `faces.csv`. The following code reads the data into the dataframe, `F.df`. 
+
+* Each image vector appears as rows in `F.matrix`.  Each image is assigned a row name which is the order in which the image occurs in the original database.
+* The `labels` vector contains the ID of the person in the picture.  If the labels match, then the pictures are of the same person.
+
+```{r}
+# Read in data 
+F.df <- read.csv('~/MATP-4400/data/faces.csv')
+# Save first column as labels
+labels <- as.numeric(F.df[,1])
+F.matrix<-as.matrix(F.df[,-1])
+# Assign the row names
+row.names(F.matrix)<-1:(nrow(F.matrix))
+``` 
+
+## $\color{blue}{Exercise 1}$
+Each image vector represents a 64x64 matrix. First we "convert" the 10th image vector into a 64x64 matrix and draw it as a heatmap with no scaling and no dendrogram. Then we display the matrix using `heatmap()`. Play with the matrix until it makes a properly oriented picture.
+
+HINTS: 
+
+* You may need to reorder the rows and/or columns. 
+* The R command `64:1` gives a sequence of integers 64 down to 1.   
+
+```{r}
+# Converting the 10th (row) image into its own 64x64 matrix
+vi<-matrix(F.matrix[10,],ncol=64)
+heatmap(vi,scale="none", Rowv=NA, Colv=NA )
+
+# Reverse the rows of the matrics (so first becomes the last)
+rev_vi = vi[nrow(vi):1,]
+heatmap(rev_vi,scale="none", Rowv=NA, Colv=NA)
+```
+
+
+# View the Data
+In the following code we've provided the function, `faceplot()`, which plots faces in greyscale based on their vectors and arranges them in a grid:
+
+```{r}
+# A function to help plot faces
+faceplot <- function(xx,width=64,midcolor="grey10",gcols=2,labels=row.names(xx)) {
+# Note require(ggplot2); require(reshape2); require(gridExtra)
+ if (is.vector(xx)) {
+   xx <- matrix(xx,nrow=1)
+}
+  pl <- vector("list",nrow(xx)) 
+  for(i in 1:nrow(xx)){
+    face <- matrix(xx[i,], nrow=width)
+    face.m <- melt(apply(face, 2, function(x) as.numeric(rev(x))))
+    pl[[i]] <- ggplot(data=face.m) + geom_raster(aes(x=Var2, y=Var1, fill=value)) +
+        theme(axis.text=element_blank(), axis.title=element_blank()) + guides(fill=FALSE) +
+        scale_fill_gradient2(low="black", mid=midcolor, high="white") +ggtitle(labels[i])
+  }
+  grid.arrange(grobs=pl,ncol=gcols)
+}
+```
+
+`faceplot()` takes the following arguments:
+
+*	`xx` is a matrix containing images as row vectors
+* `width` of the image (64 pixels for this lab)
+*	`gcols` is the number of columns
+* `midcolor` adjusts the brightness of the image
+* `labels` the labels for the images
+
+NOTES: 
+
+* Don't plot more than ten faces at a time because the function can be very slow.  
+* `faceplot()` uses `ggplot` and `geom_raster` to plot the heatmap; this requires the use  of `melt` to change format of the data prior to ploting.  
+* The function `grid.arrange()` arranges `ggplot` objects in a grid.  
+* High values appear light and low values appear dark in the images.
+
+The following code plots faces 55-64 in a grid with five columns.  Each image is labeled with the Subject ID.
+
+```{r}
+# Plot faces 55 though 64 with 5 images per row
+faceplot(F.matrix[c(55:64),],
+         gcols=5,
+         midcolor="grey50",
+         labels=labels[c(55:64)])
+```
+
+
+We can remove unwanted variations in lighting by scaling images so that they have unit length. The matrix Fbar.matrix contains the scaled images represented as vectors.
+
+```{r}
+# Insert your answer here
+rownorms <- apply(F.matrix, 1, function(x){sqrt(sum(x^2))})
+Fbar.matrix <- diag(1/rownorms) %*% F.matrix
+```
+
+*** Try it:  Check out how the faces change after scaling ***
+
+```{r}
+# Plot scaled faces 55 though 64 with 5 images per row
+faceplot(Fbar.matrix[c(55:64),],
+         gcols=5,
+         midcolor="grey50",
+         labels=labels[c(55:64)])
+
+```
+
+
+# Preparing images for analysis
+
+In data analytics, frequently the goal is to develop a model to be applied on future data.  For example, in this lab we are creating a PCA to compress data and do facial recognition.  Thus we would like to evaluate how effective the model would be on future data.  To do this, we divide the data into two disjoint sets called the *training set* and the *testing set*.  We create the data analytics model based on the training set and then apply the model to the testing set.  
+
+In the following example, the training set consists of six images for each person and the testing set consists of four images for each person. 
+
+```{r}
+# Divide into `trainface` and `testface` 
+# Since images occur in blocks of 10, work mod 10 (using %%10) and get images 4-9 as train and 0-3 as test for each subject.
+# Create trainface 
+gg <- c(1:400)
+h <- gg[ gg%%10 > 3]
+# h is the list of numbers of faces to extract
+trainface.uncentered<- Fbar.matrix[h,]
+trainfacelabels<-labels[h]
+# Create testface 
+gg <- c(1:400)
+h <- gg[ gg%%10 <= 3  ]
+# h is the list of numbers of faces to extract
+testface.uncentered<- Fbar.matrix[h,]
+testfacelabels<-labels[h]
+```
+
+# Find the mean trainface and plot it
+We will be using PCA, so we will center the data about the mean.  In this case the mean is also a face!
+
+*Let's take a look at the mean face...*
+
+```{r}
+train.mean <- colMeans(trainface.uncentered)
+faceplot(train.mean)
+```
+
+# Center the training data
+
+We center the training data using the mean of the training data.  Write down the mathematics that is being done here.  The command 'matrix(1,ncol=1,nrow=nrow(trainface.uncentered)) is making a column vector of ones.
+
+
+```{r}
+# Mean center the data and save in trainface. 
+trainface.centered <- trainface.uncentered-matrix(1,ncol=1,nrow=nrow(trainface.uncentered)) %*% train.mean
+```
+
+
+## $\color{blue}{Exercise 2}$
+Plot training images 36-45 using `trainface.uncentered` and then again using `trainface.centered`.
+
+```{r}
+# Insert your answer here
+# Plot faces 55 though 64 with 5 images per row
+imagenum<-c(36:45)
+faceplot(trainface.uncentered[imagenum,],
+         gcols=5,
+         midcolor="grey50",
+         labels=trainfacelabels[imagenum])
+faceplot(trainface.centered[imagenum,],
+         gcols=5,
+         midcolor="grey50",
+         labels=trainfacelabels[imagenum])
+```
+
+*Describe how we should interpret the mean centered data.  What does it mean when a region of pixels is light? What does it mean when a region is dark?* 
+
+The mean centered data is tracking the differentiations from the mean, the mean image was removed. So it is missing a lot of the lighter skin around the faces, that is why they appear darker. When region is darker is means that it differs more from the mean. 
+
+
+## $\color{blue}{Exercise 3}$
+Run PCA on `Fbar.matrix`.  Plot a screeplot using the `npcs = 100` to set the number of components to show.  *What is the minimum number of components necessary to capture 90% of the variance?* 
+
+Note: We used `head(t(summary(my.pca)$importance), n=100)` to see the summary of variance explained for first 100 principal components.
+
+```{r}
+# Do the PCA on the centered training data with no additional scaling or centering
+my.pca<- prcomp(trainface.centered,retx=TRUE, scale=FALSE,center=FALSE)
+#print first 100 components
+screeplot(my.pca,type="lines",main="Face Screeplot",npcs=100)
+head(t(summary(my.pca)$importance),n=100)
+
+```
+ 
+
+
+## $\color{blue}{Exercise 4}$
+Here we make a plot of the scalar projections of the data onto the first two principal components the label number representing each image.
+
+```{r}
+# Insert your answer here
+#Plot the scalar projections
+ggplot(data=as.data.frame(my.pca$x),aes(x=PC1,y=PC2)) +
+       geom_text(label=trainfacelabels) +
+  ggtitle("Scalar projection of faces")
+
+```
+*Do you see any relation between faces of the same people and the location of these points?*
+
+Yes specific people are grouped in the same region, this is becuase of similar facial features but also differences in lighting can throw it off.
+
+## $\color{blue}{Exercise 5}$
+Plot the first ten principal components as images.  You will see why the  principal components are known as *eigenfaces.*    We also plot the centered image  with the largest scalar projection on PC1  and the centered image with scalar projectiong on PC1.
+NOTE:  which.max(v) finds the index of the largest element in vector v. which.min(v) finds the index of the smallest element in vector v.
+
+```{r}
+# The code is provided.   Just look.
+faceplot(t(my.pca$rotation[,1:10]),gcols=5)
+
+# Plot the centered image with highest projection on PC1
+maxpca<-which.max(my.pca$x[,'PC1'])
+faceplot(trainface.centered[maxpca,],gcols=1,labels= trainfacelabels[maxpca])
+
+# Plot the centered image with smallest projection on PC1
+minpca<-which.min(my.pca$x[,'PC1'])
+faceplot(trainface.centered[minpca,],gcols=1,labels= trainfacelabels[minpca])
+```
+
+*What parts of the images should be light or dark to have a high scalar projection on PC1? Discuss what PC1 checks for in the image?*
+The right part of the image should be darkened to get a higher value for PC1. It checks where the lighting is coming from, left of right.
+
+# Image recognition 
+
+WeCU's has a system for facial recognition that uses the "Nearest Neighbor" Algorithm (NN). NN works by taking an image, computing the closest point in the faces dataset, and then returning that closest point as the predicted label of the image.  If the predicted label matches the true label of the person, then the system has correctly identified the person. You have been hired to improve their current system. 
+
+Here is the code of the current NN system, which uses the function `Matchimage()`.  Examine it carefully.
+
+```{r}
+#Function to compute 2-norm
+norm2 <- function(x) sqrt(as.vector(x) %*% as.vector(x))
+#Function to find closest match
+Matchimage<-function(image.matrix,refimage) 
+  # image.matrix contains the imaages
+  # refimage contains the image
+  # returns the index of the closest imaige in image.matrix
+  {
+  dist2myimage<-apply(image.matrix,1,function(x)norm2(x-refimage))
+  q <- which.min(dist2myimage)
+}
+```
+
+
+#  Find the cousins
+Let's pick a person in images 121-240. We will call the closest matching person in images 1-120 their "cousin." We'll find the match and then plot the original image on the left and the closest matching original image on the right.  
+
+*Note that we have to add in the mean image to recover the original image.*  Let's try it for Person 145:
+
+```{r}
+#Plot original and closest images
+refimageind<-145
+refimage<-trainface.centered[refimageind,]
+matchind<-Matchimage(trainface.centered[1:120,],refimage)
+faceplot(rbind(refimage+train.mean,trainface.centered[matchind,]+train.mean),gcols=2,
+         labels=trainfacelabels[c(refimageind,matchind)])
+
+```
+
+
+
+## $\color{blue}{Exercise 6}$
+
+* What is the label of the "cousin"" of Person 240?  
+* What happens if you try to find the cousin of Person 43?  Why do you think this happens?
+```{r}
+#Plot original and closest images for 240
+
+refimageind<-240
+refimage<-trainface.centered[refimageind,]
+matchind<-Matchimage(trainface.centered[1:120,],refimage)
+faceplot(rbind(refimage+train.mean,trainface.centered[matchind,]+train.mean),gcols=2,
+         labels=trainfacelabels[c(refimageind,matchind)])
+```
+```{r}
+#Plot original and closest images for 43
+
+refimageind<-43
+refimage<-trainface.centered[refimageind,]
+matchind<-Matchimage(trainface.centered[1:120,],refimage)
+faceplot(rbind(refimage+train.mean,trainface.centered[matchind,]+train.mean),gcols=2,
+         labels=trainfacelabels[c(refimageind,matchind)])
+```
+
+**You’ve now completed Prelab6! Go to LMS and complete the online quiz.**
+
+```

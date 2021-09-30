@@ -1,0 +1,240 @@
+---
+title: 'PreLab 4: Using PCA to View Clustering'
+author: "Your Name Here"
+subtitle: "Introduction to Data Mathematics 2021"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+  toc: yes
+  header-includes: \usepackage{color}
+---
+
+```{r setup, include=FALSE}
+# Required R package installation:
+# These will install packages if they are not already installed
+if (!require("ggplot2")) {
+   install.packages("ggplot2")
+   library(ggplot2)
+}
+if (!require("knitr")) {
+   install.packages("knitr")
+   library(knitr)
+}
+if (!require("gplots")) {
+   install.packages("gplots")
+   library(gplots)
+}
+if (!require("devtools")) {
+   install.packages("devtools")
+   library(devtools)
+}
+
+  if (!require("dplyr")) {
+   install.packages("dplyr")
+   library(dplyr)
+  }
+  if (!require("ggdendro")) {
+   install.packages("ggdendro")
+   library(ggdendro)
+  }
+  if (!require("plotly")) {
+   install.packages("plotly")
+   library(plotly)
+  }
+if (!require("ggbiplot")) {
+   devtools::install_git("https://github.com/vqv/ggbiplot.git")
+   library(ggbiplot)
+}
+
+
+# We'll use this later to only print plotly code when valid
+out_type<-NULL
+out_type <- knitr::opts_knit$get("rmarkdown.pandoc.to")
+if (is.null(out_type)) {out_type <- "none"}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+
+```
+
+# Prelab Overview
+In this prelab, you will experiment with Principal Components to display the result of clustering on the mtcars dataset.  We will do the following standard analyses using PCA with clustering. 
+
+
+1. Read in data
+2. Scale data if desired
+3. Run PCA using the `prcomp` command and return the results into an object called `my.pca`.
+4. Make a screeplot using `my.pca` using 'screeplot'
+5. Explore the explained variance using `summary(my.pca)`
+6. Run your favorite clustering. In this prelab we will use hierarchical clustering but you can use any method.
+7. Draw a scoreplot of PC1 and PC2 colored by cluster using 'ggbiplot'
+8. Draw scoreplots for additional principal components if there is variance left to be explained using 'ggbiplot' (not the case  in this lab)
+9. Interpret the results with description and illustrative plots of your choice.
+
+Since the data in the prelab is 3 dimensional,  we will also examine the principal component vectors to further understand the plots.
+
+
+Some hints: 
+
+* This prelab contains interactive plots that will only appear when you knit to html or run directly in Rstudio.    If you knit to pdf then they will not be shown.  
+* We use the command 'hclust()' to make a hierarchical cluster object such as 'my.clust'. 
+    +  the `cutree(my.clust,k=3)' will determine 3 clusters based on the dedrogram and return a cluster vector.
+    +  'plot(my.clust)' will plot the dendrogram.
+* We use the command `prcomp` to do the analysis with options
+    + `retrx = TRUE` so prcomp returns the vectors and scalar projections
+    + `center=FALSE`, `scale=FALSE`  because we will scale the data ourselves.
+* The 'plot' command applied to an object frequently will print something useful. `plot(my.pca)' will print a scree plot of the explained variance.
+* The PCA command can scale data for you but it is usually a good idea to do your own scaling when building up an analysis involving many steps.  
+* In ggplot, we use `geom_hline` and `geom_vline` to add the horizontal and vertical lines, respectively, to the ggplot.
+
+# Setting up the Prelab
+Copy `prelab4.Rmd` to your working directory `IDM_work`. Use this for your assignment.  Do a practice "knit" (to pdf or html) before you begin. 
+
+
+## $\color{blue}{Exercise~1}$
+
+In this exercise, we will work with mtcars using only "mpg", "cyl","hp" which are the following measurement of cars: miles per gallon, the number of cylinders, and the horse power of the car.  
+
+```{r}
+# Create a scaled version of the subset of mtcars data
+mycars.matrix<-scale(as.matrix(mtcars[,c("mpg","cyl","hp")]))
+mycars.df<-as.data.frame((mycars.matrix))
+```
+
+Now we do the PCA analysis, check out the proportion of explained variance using summary command, and then plot the scree plot.
+```{r}
+# Run PCA using prcomp
+my.pca <- prcomp(mycars.df)
+# See proportion of variance explained
+summary(my.pca)
+# scree plot 
+plot(my.pca, type = "l")
+```
+
+A 'scree plot' is a simple line segment plot that shows the variance in the data as explained or represented by each PC. The PCs are ordered in decreasing order of variance. In this plot, we see that the first two principal components explain most of the variance.  From the summary we see that these two components together explain 95.54% of the variance.  The proportion of the variance explained by the first component  0.8803.  The curve is essentially flat after two components, so the third component is not valuable for interpretation.
+
+
+The prcomp command returns all the parts needed to use PCA.
+
+**Try it**  
+
+* Use 'str' to check out the parts of my.pca.  
+* Print the components returned by PCA for the mtcar data 
+    + `my.pca$rotation` contains a matrix of principal component vectors
+    + `my.pca$x` contains the scalar projections of the data 
+```{r}
+# Fool around here to understand the parts. 
+str(my.pca)
+    
+# Print the principal components found by PCA.
+my.pca$rotation
+
+#Print the scalar projects of the data on the principal components.    
+my.pca$x
+
+```
+
+Now we cluster the data using `hclust' to do hierarchical clustering.  We plot the dendrogram and decide on 5 clusters.   
+ 
+```{r}
+set.seed(30)
+# cluster the car models using hierarchical clustering
+my.clust <- hclust(dist(mycars.df), method = "complete")
+ 
+# show the dendrogram
+plot(my.clust)
+ 
+# cut the dendrogram into 5 clusters and save the cluster vector
+my.clustname <- as.factor(cutree(my.clust, k = 5))
+
+```
+
+Now we draw a plot of the scalar projections of the first two PCA components. This is called a scoreplot. Each point is colored by its cluster and labeled with its row name. We use the biplot command to draw a scoreplot by setting 'var.axes = FALSE'.  If you drop that part of the command, you get a biplot which will be covered in the next lab. 
+```{r}
+# Draw score plot using regular method 
+p <- ggbiplot(my.pca,
+            choices=c(1,2),  # this indicates we want pc1 and pc2
+            alpha=.4, # this makes the points transparent
+            var.axes = FALSE,  # this suppresses axes that appear in a biplot
+            labels=rownames(mycars.df),
+            groups=as.factor(my.clustname)) 
+
+p <- p + ggtitle('Mycars Scoreplot of PC1 and PC2') +  
+   coord_cartesian(xlim=c(-3,3), ylim=c(-3,3)) # picking the x and y axes to put 0 in the middle .
+
+
+#If not a pdf then make an interactive plot using ggplotly otherwise do a normal static plot. 
+if(out_type!="latex")  {ggplotly(p)} else {p}
+```
+
+
+## $\color{blue}{Exercise~2}$
+
+When interpreting a pca result it can be helpful to examine the principal component vectors.
+Here is a heatmap with no scaling and reordering for the first two principal components.
+```{r}
+V <- t(my.pca$rotation) # We transpose to make the principal components be rows
+heatmap.2(V, main='Principal Components', cexRow=0.75, cexCol=0.75, scale="none", dendrogram="none",
+          Colv= FALSE, Rowv=FALSE, tracecol=NA,density.info='none')
+```
+
+If PC1 was a car, how would you describe its mpg (miles per gallon), cyl (cylinders), and hp (horse power)?
+It has more cylinders, and as a result more horsepower, however it is worse when it comes to fuel efficiency (mpg)
+
+The `Lincoln Continental` is a large powerful luxury car (i.e. hp is high). The `Honda Civic` is an economy car that doesn't go so fast (i.e. hp is low).   
+
+   + Find the data point for `Lincoln Continental`
+   + Compute the scalar projection of a `Lincoln Continental` on vector PC1 `my.pca$rotation[,1]`. Verify that the same answer is in the loading matrix `my.pca$x["Lincoln Continental",1]`  
+   + Repeat for  `Honda Civic`
+   
+```{r}
+# Lincoln Continental
+#Data Point:
+Lincoln_data <- as.numeric(mycars.matrix["Lincoln Continental",])
+#Scalar projection:
+PC1_vec <- my.pca$rotation[,1]
+Lincoln_proj <- (t(Lincoln_data) %*% PC1_vec)[1,1]
+
+Lincoln_proj
+my.pca$x["Lincoln Continental",1]
+
+
+# Honda Civic
+#Data Point:
+Civic_data <- as.numeric(mycars.matrix["Honda Civic",])
+#Scalar projection:
+PC1_vec <- my.pca$rotation[,1]
+Civic_proj <- (t(Civic_data) %*% PC1_vec)[1,1]
+
+Civic_proj
+my.pca$x["Honda Civic",1]
+```
+
+
+
+
+You’ve now completed Prelab4! Go to LMS and complete the online quiz.
+
+
+```{r}
+#Quiz on LMS
+q3 = c(1,0,0)
+q4 = c(0,0,1)
+
+PC1_vec <- my.pca$rotation[,1]
+PC2_vec <- my.pca$rotation[,2]
+
+(t(q3) %*% PC1_vec)[1,1]
+(t(q4) %*% PC2_vec)[1,1]
+
+```
+
+# Appendix
+
+The Appendix lets you dig deeper into R to learn more. 
+
+* To dig more into *hiearchical clustering*, see
+ https://uc-r.github.io/hc_clustering
+ Check out the different clustering algorithms and visualizations. There is more information on alternative methods for determining the number of clusters such as silhouette plots. 
+

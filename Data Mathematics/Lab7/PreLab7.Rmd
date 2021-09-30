@@ -1,0 +1,225 @@
+---
+title: 'Prelab 7: Experimenting with Facial Reconstruction using PCA'
+author: "Your Name Here"
+subtitle: Introduction to Data Mathematics Spring 2021
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  header-includes: \usepackage{color}
+  html_notebook: default
+  toc: yes
+---
+
+
+#  Overview
+
+In this lab, you will learn about using PCA for image compression and reconstruction. You will also investigate training and testing sets.  
+
+Start the prelab by saving the master `PreLab7.Rmd` file to your local directory and editing the header to include your name.
+
+**Preparation:** This lab requires several packages: `ggplot2`,`knitr`, `ggbiplot`,`reshape2`, and `gridExtra`.
+
+```{r setup, include=FALSE}
+# These will install required packages if they are not already installed
+# Set the correct default repository
+r = getOption("repos")
+r["CRAN"] = "http://cran.rstudio.com"
+options(repos = r)
+
+if (!require("ggplot2")) {
+   install.packages("ggplot2", dependencies = TRUE)
+   library(ggplot2)
+}
+if (!require("knitr")) {
+   install.packages("knitr", dependencies = TRUE)
+   library(knitr)
+}
+if (!require("ggbiplot")) {
+  install.packages("devtools",dependencies = TRUE )  # also need install ggplot2
+  library("devtools")
+  install_git("git://github.com/vqv/ggbiplot.git",dependencies = TRUE)
+  library("ggbiplot")
+}
+if (!require(reshape2)){
+  install.packages("reshape2", dependencies = TRUE)
+   library(reshape2)
+} 
+if (!require(gridExtra)){
+  install.packages("gridExtra", dependencies = TRUE)
+   library(gridExtra)
+} 
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Prepare the train and test sets for the face data and do PCA
+
+As in Lab 6 we'll use the  dataset `faces.csv`. The following code reads the data into the dataframe `F.df`. 
+
+The vector `labels` contains numbers representing the _identities_ of the people.  The image vectors appear as rows in `F.matrix`.  Each image is assigned a _row name_ which is the order the image occurs in the database.  
+
+```{r}
+# Read in data 
+F.df <- read.csv('~/MATP-4400/data/faces.csv')
+# Save first column as labels
+labels <- as.numeric(F.df[,1])
+F.matrix<-as.matrix(F.df[,-1])
+# Assign the row names
+row.names(F.matrix)<-1:(nrow(F.matrix))
+```
+
+You will need the helper function defined in Lab 6.
+
+The `faceplot()` function defined below draws one or more vectors as an images in a grid.    
+
+```{r}
+# A function to help plot faces
+faceplot <- function(xx,width=64,midcolor="grey10",gcols=2,labels=row.names(xx)) {
+# Note require(ggplot2); require(reshape2); require(gridExtra)
+ if (is.vector(xx)) {
+   xx <- matrix(xx,nrow=1)
+}
+  pl <- vector("list",nrow(xx)) 
+  for(i in 1:nrow(xx)){
+    face <- matrix(xx[i,], nrow=width)
+    face.m <- melt(apply(face, 2, function(x) as.numeric(rev(x))))
+    pl[[i]] <- ggplot(data=face.m) + geom_raster(aes(x=Var2, y=Var1, fill=value)) +
+        theme(axis.text=element_blank(), axis.title=element_blank()) + guides(fill=FALSE) +
+        scale_fill_gradient2(low="black", mid=midcolor, high="white") +ggtitle(labels[i])
+  }
+  grid.arrange(grobs=pl,ncol=gcols)
+}
+```
+
+We once again need to generate _training_ and _testing_ datasets.   In this lab we create a PCA to compress data. Our training data will be used to construct the compression method. We will evaluate how well it works by testing it on the testing data.  
+
+As in Lab 6, we'll divide the data into two *disjoint* sets called the _training_ set and the _testing_ set.  The data analytics model is created based on the training set. Then the model is applied to the testing set.  In the following example, the training set consists of six images for each person and the testing set consists of four images from each person. 
+
+```{r}
+# Divide into trainface and  testface 
+# Since images occur in blocks of 10, work mod10 (using %%10) and select images 4-9 as train and 0-3 as test.
+gg <- c(1:400)
+h <- gg[ gg%%10 >3]
+# h is the list of numbers of faces to extract
+trainface.uncentered<- F.matrix[h,]
+trainfacelabels<-labels[h]
+# Test face 
+gg <- c(1:400)
+h <- gg[ gg%%10 <= 3  ]
+# h is the list of numbers of faces to extract
+testface.uncentered<- F.matrix[h,]
+testfacelabels<-labels[h]
+```
+
+We now perform the PCA analysis we learned in Lab 6 on our training data.  
+
+First we *mean scale* the data to create the matrix `trainface`. The mean of the training data is saved in `train.mean`. Then, we plot the *mean face* and generate a screeplot. 
+
+```{r}
+# Find the mean face and plot it
+ones<- matrix(1,ncol=1,nrow=nrow(trainface.uncentered))
+train.mean <- 1/nrow(trainface.uncentered)* t(ones) %*% trainface.uncentered
+faceplot(train.mean)
+# Mean center the data and save in trainface. 
+trainface<-trainface.uncentered-matrix(1,ncol=1,nrow=nrow(trainface.uncentered))%*%train.mean
+# Principal component command. Do not recenter data.
+my.pca<- prcomp(trainface,retx=TRUE,center=FALSE)
+# Examine our result
+screeplot(my.pca,npcs=50,type='lines')
+```
+
+$\color{blue}{Exercise~1~Test~Face~Reconstruction}$ 
+
+We'll now experiment with reconstructing an image using the eigenvectors of the training set.  This strategy could be used as a compression algorithm.  Imagine both your cell phone and a website know the principal components of a training data set of images. You take a test image in your cell phone with 4096 pixels and reduce it to a $k$-dimensional vectors by taking the first $k$ scalar projections.  The cell phone transmits this $k$-dimesional vector to the website, and the website reconstructs the test image using the training eigenvectors.
+
+Let $x$ be a row vector representing the image we want to compress and let $w_1$,...,$w_k$ be the first $k$ principal components of the mean-centered training data set.  Let $p$ be the scalar projection of $\bar x = x - train.mean$ onto the first $k$ principal components.  Then $p_i = x w_i$ for $i \in \{1,2,...,k\}$.  To reconstruct $x$ from $p$, perform the operation $x_{recon} = p_1 w_1 + p_2 w_2 + ... + p_k w_k + train.mean$. The error in the reconstruction is given by $||x_{recon} - x||$.   
+
+We want to evaluate the quality of reconstruction for all possible values of $k$.  Smaller $k$ gives a better compression, but larger $k$ may lead to better reconstruction; *we seek to find a balance*.  To this end, we perform the reconstruction procedure (given in the previous paragraph) on `Image 98` for every possible value of $k$, and store each reconstruction as the row of a matrix `recon`.  A set of reconstructions is built using a loop that just adds on the scalar projection times the next eigenvector at each iteration.  Note how the test image is centered using the training data mean and the training data mean must be included in the reconstruction. 
+Finally, we plot the reconstructions. Note that the labels are the number of eigenvectors used in the reconstruction.
+
+```{r}
+tface<-98
+# newface is the centered  test face
+newface<-testface.uncentered[tface,]-train.mean
+# Get the scalar projections of newface.
+scalarproj <- newface %*% my.pca$rotation
+recon<- t(my.pca$rotation)  # create the recon matrix as eigenvectors and then replace with reconstructions
+# n is the number of eigenvectors found.
+n<-nrow(recon)
+recon[1,] <- train.mean+scalarproj[1]*recon[1, ]  #Reconstruct uisng the first eigenvector
+# Add s_i v_i to each row.
+for(j in 2:n){ recon[j, ] <- recon[j-1, ] + scalarproj[j]*recon[j, ]}
+# Plot selected reconstructions followed by the original image  
+pl <- rbind(recon[c(5,25,50,100,n), ])
+pl <- rbind(pl,testface.uncentered[tface,])
+# Plot the reconstructed faces for using 5,25,50, 100, the maximum eigenvetors, and the origial image
+faceplot(as.data.frame(pl),gcols=3,labels=c('5','25','50','100',as.character(n),'orig'))
+```
+
+
+## $\color{blue}{Exercise~1~Face~Reconstruction}$ 
+
+What differences do you see between the reconstructions with `5`, `50` and `240` components and the original image?
+In image 5, you cannot see his mustache, and there appears to be a shadow of glasses on his face, but the smile is starting to form. 
+In image 50, the glasses shadow is still there, and it looks like the smile may have a shadow above it indicating the mustache. the nose is starting for form better.
+In Image 240, there is a lot of noise, There is still the rings around his eyes that make it look like glasses but they are almost faded. the mustache is still missing and the shape of his face is off. It wants to cut the bottom part of his face to make it more round even though in the original his face goes across the edge. 
+
+
+## $\color{blue}{Exercise~2}$
+
+Compute the 2-norm of the difference between the original and reconstructed image from Exercise 1 using 240 components.   *What is the reconstruction error?*
+
+```{r}
+diff <- norm2(recon[240,] - testface.uncentered[tface,])
+diff
+```
+
+## $\color{blue}{Exercise~3~Train~Face~Recognition}$
+
+Repeat Exercise 1 on Image 165 from the training data.  What differences do you see between the original data and the reconstructions for the `5`,`50`, and `240` eigenvector reconstructions?
+
+```{r}
+tface<-165
+# newface is the centered  test face
+newface<-trainface.uncentered[tface,]-train.mean
+# Get the scalar projections of newface.
+scalarproj <- newface %*% my.pca$rotation
+recon<- t(my.pca$rotation)  # create the recon matrix as eigenvectors and then replace with reconstructions
+# n is the number of eigenvectors found.
+n<-nrow(recon)
+recon[1,] <- train.mean+scalarproj[1]*recon[1, ]  #Reconstruct uisng the first eigenvector
+# Add s_i v_i to each row.
+for(j in 2:n){ recon[j, ] <- recon[j-1, ] + scalarproj[j]*recon[j, ]}
+# Plot selected reconstructions followed by the original image  
+pl <- rbind(recon[c(5,25,50,100,n), ])
+pl <- rbind(pl,trainface.uncentered[tface,])
+# Plot the reconstructed faces for using 5,25,50, 100, the maximum eigenvetors, and the origial image
+faceplot(as.data.frame(pl),gcols=3,labels=c('5','25','50','100',as.character(n),'orig'))
+```
+In 5, it already looks similar to the original face. We can see the start of his glasses and the shaping of his mouth.
+In 25, the beard is starting to form, and the classes are more defines. There is also a crack fo a smile. 
+In 240, it is basically. the original image. 
+
+## $\color{blue}{Exercise~4}$
+Compute the 2-norm of the difference between the original and reconstructed image from exercise 3 using 240 components.  What is the reconstruction error?
+
+```{r}
+diff <- norm2(recon[240,] - trainface.uncentered[tface,])
+diff
+```
+
+
+
+## $\color{blue}{Exercise~5}$
+
+Repeat Exercises 1 and 2 on an images of your choice from the testing and training data.    
+
+
+
+## $\color{blue}{Exercise~6}$
+
+Mathematically, why does a reconstructed testing image tend to differ significantly from the original image while a reconstructed training image is almost identical to the original image? 
+
+**HINT: CONSIDER SUBSPACES AND SPANS**
+
+Now do the PreLab Quiz.

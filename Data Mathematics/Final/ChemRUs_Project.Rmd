@@ -1,0 +1,568 @@
+---
+title: |
+  ![](ChemsRUsLogo.png){width=2in}  
+  Chems-R-Us Challenge 2021
+author: "Kristin Bennett"
+date: "March 2021"
+subtitle: "Preparing Your Chems-R-Us Challenge Entry"
+output:
+  beamer_presentation: 
+   slide_level : 2
+  pdf_document : default
+  html_document : default
+  ioslides_presentation: default
+  slidy_presentation: default
+
+---
+
+```{r, include=FALSE, set.seed(20)}
+knitr::opts_chunk$set(cache = T)
+
+# Set the correct default repository
+r = getOption("repos")
+r["CRAN"] = "http://cran.rstudio.com"
+options(repos = r)
+
+
+# These will install required packages if they are not already installed
+if (!require("ggplot2")) {
+   install.packages("ggplot2", dependencies = TRUE)
+   library(ggplot2)
+}
+if (!require("knitr")) {
+   install.packages("knitr", dependencies = TRUE)
+   library(knitr)
+}
+if (!require("xtable")) {
+   install.packages("xtable", dependencies = TRUE)
+   library(xtable)
+}
+if (!require("pander")) {
+   install.packages("pander", dependencies = TRUE)
+   library(pander)
+}
+
+if (!require("devtools")) {
+  install.packages("devtools",dependencies = TRUE ) 
+  library(devtools)
+}
+
+if (!require("usethis")) {
+  install.packages("usethis" ) 
+  library(usethis)
+}
+
+if (!require("e1071")) {
+ install.packages("e1071" ) 
+  library(e1071)
+}
+
+if (!require("pROC")){
+  install.packages("pROC")
+   library(pROC)
+} 
+
+if (!require("dplyr")) {
+   install.packages("dplyr", dependencies = TRUE)
+   library(dplyr)
+}
+
+if (!require("tidyverse")) {
+   install.packages("tidyverse", dependencies = TRUE)
+   library(tidyverse)
+}
+
+if (!require("caret")) {
+   install.packages("caret", dependencies = TRUE)
+   library(caret)
+}
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+      
+## 1.0 Chems-R-Us Task
+
+   * The European REACH regulation requires information on ready biodegradation, which is a screening test to assess the biodegradability of chemicals. At the same time REACH encourages the use of alternatives to animal testing. 
+   * Your contract is to build a classification model to predict ready biodegradation of chemicals and to predict the classification of 400 newly developed molecules.  This will help Chems-R-Us to design new materials with desired biodegradation properties more quickly and for lower cost.
+
+## Chems-R-Us Training & Testing Data
+
+   * Experimental values of 1055 chemicals were collected. 
+   * The training dataset consists of these 1055 chemicals; whether they were readily biodegradable (1= yes , -1 = no); and 168 molecular descriptors.  
+   * Molecules and Molecular descriptors are proprietary.  No details are provided except _cryptic names_ in column headers
+   * A testing set of 400 molecules with unknown biodegradability is provided
+
+## Chems-R-Us Challenge Problem 1
+
+To save money, Chems-R-Us goal would like to test the molecules that are most biodegradable first. So your challenge is to rank order the molecules by assignment them a number indicating the rank. High values are more likely to be biodegradable and low values are less less likely. This is done in two steps:
+
+* **Binary classification:** Each data row is labeled (-1) or (1). You must train a predictive model on the train dataset to be able to find (as best you can) the labels of the test dataset. 
+
+* **Ranking:**  Take the classifier and use it to produce the ranking by assigning some number for each point.  For example, for logistic regression and LDA, you can use the output of the predict function without thresholding. 
+
+* The quality of the test-set ranking is calculated by using **AUC** (Area Under the Curve)
+
+
+## Chems-R-Us Challenge Problem 2
+
+It costs Chems-R-Us time and money to  use many features. They would like you to pick only the essential features, and therefore have added **feature selection** to their challenge:
+
+* Scattered among the 168 features there are _fake features_. These are randomly generated variables which don't help predicting the class. The goal of this problem is to classify features as being fake (0) and real (1).
+
+* Chems-R-Us will use _balanced accuracy_ on the actual real and unseen features to see how well you've done at predicting features. 
+
+## Challenge  
+
+* Chems-R-Us will evaluate the best team using this online challenge, available through two portals: 
+   * http://codalab.idea.rpi.edu/competitions/37 (RPI VPN)
+   * https://competitions.codalab.org/competitions/30686 (Codalab.org) (slower)
+   
+* **You will enter as a team.** Chems-R-Us would like you to try many different approaches, so each team member must create a unique approach and enter the challenge at least once.   
+* Prizes go to the teams with best overall and median scores for each challenge problem. 
+* You will prepare a team video on your work and answer questions about it at the Mini-Conference.
+
+## Individual Part
+
+* Required
+  
+  * Classification/Ranking - Two different  Methods
+  * Feature Selection - Three methods: all features, and two methods of your choice
+
+* In total you will try 6 different methods (combined Classification and Feature Selection in your individual notebook.
+
+
+* A full "Baseline" Logistic Regression (LR) challenge entry for both classification and feature selection provided.
+
+* You can use Baseline LR  Methods as one of your approaches, but this is not required.
+
+
+## Team Part
+
+* Each team member will provide their "best" challenge entry
+
+* Compare/Analyze entries across team and give final recommendation as a team to Chems-R-Us
+
+* Requirement
+
+  * Each team member must do a unique approach (combined classification and feature selection)
+  
+  * The team must try at least 3 different classification methods
+  
+  * The must try at least 3 different feature selection methods
+
+## 2.0 Chems-R-Us Final Project Schedule
+
+   * 21 Apr 2021: Introduction (Part of this presentation)
+   * 23 Apr 2021: Logistic Regression, AUC, and Feature Selection Background in Class
+   * 27 Apr 2021: No Class 
+   * 28 Apr 2021: "Phase 1" Mandatory Team Lab
+      * Prelab Entry: Start you final notebook and do your first Codalab entry.
+      * Prelab Quiz: See LMS for details.
+      * In lab: Breakout into teams and strategize approaches to feature selection
+   * 30 Apr 2021: More ideas and coaching in class   
+   * 07 May 2021: "Phase 2" during exam time
+      * Final entries and notebook due
+      * Team video following Project 1 format (details next week)
+      * Play videos and answer questions in Mini-Conference during exam time
+      * Prizes: Best Overall scores; Best Team Median Scores 
+      
+## Team Meetings Today
+
+* Same Teams as before
+* Make up Team Name for this Project
+* Create plan to coordinate
+* Discuss any thoughts on methods to try
+
+## MATP-4400-S21 Final Project Deliverables
+
+The IDM Final Project (2021) has the following deliverables:
+
+1. Before 28 Apr Lab session: Complete the Final Prelab as an individual
+   * Start your individual project notebook, using the template and sample code provided. 
+   * Submit a Codalab entry based on this code, demonstrating _some_ (any!) kind of feature selection
+   * Answer the Prelab quiz questions, including a description of a "creative" feature selection strategy you  will bring to your team
+
+2. During 28 Apr Lab session: As a team, discuss and generate an original feature selection approach for each team member to pursue. Coaching for each team will be provided.
+
+## MATP-4400-S21 Final Project Deliverables (2)
+    
+3. Before 7 May Final: 
+   * Each group member must pursue a unique feature selection/classification approach
+   * Each group member must enter  their unique approach in the challenge. 
+   * _Your team must have a unique entry for every member of the team_
+   * At least three different classification methods (not including Baseline) must be tried by team
+   * At least three different feature selection methods (not be including Baseline must be tried by team)
+   * Aggregate your group's results; compare the results and recommend the best method as a team.
+   * During the final presentation, each group member should discuss their individual approach!
+   
+## MATP-4400-S21 Final Project Deliverables (3)
+
+6. Create an individual notebook, using the template provided
+   * Focus on presenting your individual results
+   * Your individual notebook supports your section of your group presentation. 
+
+7. Create a group presentation, including group and individual results
+   * Similar format of the mid-term Mini-Project TBD
+   * Your slides should include your team name and all members who participated in its making
+   * Upload a PDF of your presentation to LMS.
+
+## MATP-4400-S21 Final Project Deliverables (4)
+
+8. Record a video of the presentation
+   * The video should be 7-9 minutes (teams of five) and 8-10 minutes (teams of six). 
+   * Each person must say something during the video, esp. describing their individual work!
+   * The videos will be viewed on 7 May (time TBD).  _Please be sure to attend the lab associated with your team._
+   * If a team member becomes ill or otherwise cannot participate in the video, make all due diligence to contact he/she/they.  If necessary, create multiple shorter videos.  _Do not list team members who did not participate in the creation of the video._   
+
+9. Provide a link to your video
+   * YouTube, Webex or RPI Mediasite are good choices
+   * PLEASE verify that your instructors have access BEFORE the 7 May deadline! 
+10. Attend final presentation to answer questions about your approach. If time is a hardship, then let us know and we will make an alternative approach.
+
+
+
+## 3.0 Chems-R-Us Challenge Data Files
+
+* TRAINING DATA is divided into four files: 
+   * `chems_train.data.csv`: Training data matrix with no response labels (1018 samples x 168 feature values)
+   * `chems_feat.name.csv`: Name of the 168 attributes (168 x 1 features names).
+   * `chems_train.solution.csv`: Training target values (1018 lines x 1 column)
+
+* EXTERNAL TEST DATA is one file
+   * `chems_test.data.csv`: Test data matrix (437 samples x 168 features values)
+
+
+## Chems-R-Us Baseline LR Methodology: Beat This!
+
+1. Read in the data; create `train` and `validation` datasets
+2. Train Logistic Regression (LR) on the training set and evaluate balanced accuracy on the validation set.
+3. Review the LR results to find features flagged as significant, with p-values of less than 0.2.
+4. Create a new LR using only those features; evaluate balanced accuracy on the validation set.
+5. Pick the best feature set by comparing the balanced accuracies and AUC on validation
+   * Here is a video explaining AUC from Statquest: https://www.youtube.com/watch?v=C4N3_XJJ-jU
+6. Create a file with numbers for each test point ranking biodegraability of test molecules.
+7. Create a file with 0 and 1 indicating selected features selected.
+6. Prepare a `.zip` file containing **two files**, one with the testing set rankings and one indicating selected features
+7. Upload this zip to the Challenge portal (details follow)
+
+## Reading the Data
+
+\small
+```{r}
+# Prepare biodegradability data 
+#get feature names 
+featurenames <- read.csv("~/MATP-4400/data/chems_feat.name.csv",
+                         header=FALSE, 
+                         colClasses = "character")
+# get training data and rename with feature names
+cdata.df <-read.csv("~/MATP-4400/data/chems_train.data.csv",
+                    header=FALSE)
+colnames(cdata.df) <- featurenames$V1
+
+# get external testing data and rename with feature names
+tdata.df <-read.csv("~/MATP-4400/data/chems_test.data.csv",
+                    header=FALSE) 
+
+colnames(tdata.df) <- featurenames$V1
+
+class <- read.csv("~/MATP-4400/data/chems_train.solution.csv",
+                  header=FALSE, 
+                  colClasses = "factor") 
+
+class <- class$V1
+```
+
+## Preparing the Data: Create Training & Validation datasets
+
+We split the data into **90% train** and **10% validation** datasets.
+\small
+```{r}
+#ss will be the number of data points in the training set
+n <- nrow(cdata.df)
+ss <- ceiling(n*0.90)
+# Set random seed for reproducibility
+set.seed(200)
+train.perm <- sample(1:n,ss)
+#Split training and validation data
+train <- cdata.df %>% slice(train.perm) 
+validation <- cdata.df %>% slice(-train.perm) 
+```
+
+## Preparing the Data: Create Training & Validation datasets (2)
+
+We then standardize all variables to a _common scale_, since we don't have domain knowledge and LR assumes independent and identically distributed (IID) Gaussian features. This avoids LR unwittingly prioritizing certain features simply because their scale is larger.  Note that the training, validation sets, are all scaled identically using the `preProcess()`.
+\small
+```{r}
+# Initialize the scaler on the training data
+scaler <- preProcess(train, method = "scale") 
+# Normalize training data
+train <- predict(scaler, train) 
+# Normalize validation data
+validation <- predict(scaler, validation) 
+# Normalize testing data
+test <- predict(scaler, tdata.df) 
+# Split the output classes
+classtrain <- class[train.perm]
+classval <-class[-train.perm]
+```
+
+## Fit Logistic Regression & Get Ranking Predictions
+
+Now we fit a logistic regression model to the training data and obtain the _class probability estimates_ produced by 'predict()'  for the training and validation data. 
+
+\small
+```{r, warning=FALSE}
+# Fit LR model to classify all the variables
+train.df <- cbind(train,classtrain)
+lrfit <- glm(classtrain~., data=train.df,
+             family = "binomial")
+# Predict training (OUTPUTS PROBABILITIES)
+ranking_lr.train <- predict(lrfit,train,
+                            type="response") 
+# Predict validation (OUTPUTS PROBABILITIES)
+ranking_lr.val <- predict(lrfit,validation,
+                          type="response") 
+```
+
+## Calculate LR Balanced Accuracy on the Validation dataset
+
+Note how  `prob_to_class()` converts ranking predictions  to class predictions
+
+```{r, echo=TRUE}
+# This is a group of helper functions meant to avoid repetitiveness and shorten presentation output
+
+prob_to_class <- function(ranking_lr) {
+   # This helper function converts LR probability outputs into 1 and -1 classes
+   temp <- ranking_lr > 0.5
+   temp[temp==TRUE] <- 1
+   temp[temp==FALSE] <- -1 
+   return(as.factor(temp))
+}
+```
+
+```{r, echo=TRUE}
+sensitivity_from_confmat <- function(confmat) {
+   # This helper returns the sensitivity given a confusion matrix
+   return(confmat[1,1]/(confmat[1,1]+confmat[1,2]))
+}
+
+specificity_from_confmat <- function(confmat) {
+   # This helper returns the specificity given a confusion matrix
+   return(confmat[2,2]/(confmat[2,1]+confmat[2,2]))
+}
+```
+## Calculate LR Balanced Accuracy on the Validation dataset (2)
+
+To assess the model's performance, we can build a **confusion matrix** of the validation outputs to get misclassification rates and the balanced accuracy.
+We convert the probability estimates to class outputs and define the matrix.
+
+\small
+```{r}
+# This function converts PROBABILITIES to 1 and -1 CLASSES
+classval_lr <- prob_to_class(ranking_lr.val)
+# Calculate confusion matrix  to see balanced accuracy
+confusion.matrix <- table(classval,classval_lr)
+kable(confusion.matrix, type="html",digits = 2,
+      caption="Actual versus Predicted Class (Validation)")
+```
+
+## Calculate LR Balanced Accuracy on the Validation dataset (3)
+
+Given the confusion matrix $M$, we can find the balanced accuracy using the formula
+\begin{align*}
+   Sensitivity &= \frac{M_{1,1}}{M_{1,1} + M_{1,2}} = \frac{TruePos}{TruePos + FalseNeg} \\ 
+   Specificity &= \frac{M_{2,2}}{M_{2,1} + M_{2,2}} = \frac{TrueNeg}{TrueNeg + FalsePos}\\ 
+   BalancedAccuracy &= \frac{1}{2}\left(Sensitivity + Specificity\right)
+\end{align*}
+
+\small
+```{r}
+# True Positive Rate or Sensitivity
+Sensitivity <- sensitivity_from_confmat(confusion.matrix)
+# True Negative Rate or Specificity
+Specificity <- specificity_from_confmat(confusion.matrix)
+BalancedAccuracy <- (Sensitivity+Specificity)/2
+```
+
+The Logistic Regression model achieves a balanced accuracy of `r BalancedAccuracy` on the validation data.
+
+## Feature Selection: Using Statistically Significant Regression Variables
+
+Given our use of Logistic Regression as a classification model, a simple way to perform feature selection is to select features with _statistically significant_ coefficients in the LR model.
+
+The `lrfit` object (see **Fit Logistic Regression** slide) provides p-value estimates for each coefficient using a default null hypothesis, so we keep only features with p-values below the 80% confidence level. 
+
+\tiny
+```{r}
+# Get data frame with coefficient data excluding intercept
+coefficients.df <- as.data.frame(summary(lrfit)$coeff) %>% 
+   slice(2:n()) 
+# Boolean vector with TRUE corresponding to significant variables
+significant.variables <- coefficients.df %>% 
+   dplyr::select(last_col()) <= 0.2
+# Keep only statistically significant features
+train.fs <- train %>% select_if(significant.variables) 
+train.fs.df <- cbind(train.fs, classtrain)
+```
+
+## Fit Logistic Regression with Feature Selection
+
+We fit a **new** Logistic Regression model to the data with feature selection and find the training and validation probability estimates.
+
+\small
+```{r, warning=FALSE}
+# Fit LR model with feature selection
+lrfit.fs <- glm(classtrain ~., data = train.fs.df, 
+                 family = "binomial")
+# Predict training (OUTPUTS PROBABILITIES)
+ranking_lr.fs.train <- predict(lrfit.fs, train, 
+                                type="response") 
+# Predict validation (OUTPUTS PROBABILITIES)
+ranking_lr.fs.val <- predict(lrfit.fs, validation, 
+                              type="response") 
+```
+
+## LR Validation Balanced Accuracy with Feature Selection
+
+To assess the model's performance with feature selection, we build a confusion matrix and compute the balanced accuracy exactly as before.
+
+\small
+```{r, echo=FALSE}
+classval_lr.fs <- prob_to_class(ranking_lr.fs.val)
+confusion.matrix <- table(classval,classval_lr.fs)
+Sensitivity <- sensitivity_from_confmat(confusion.matrix)
+Specificity <- specificity_from_confmat(confusion.matrix)
+BalancedAccuracy <- (Sensitivity+Specificity)/2
+kable(confusion.matrix, type="html",digits = 2,
+      caption="Actual versus Predicted Class (Validation)")
+```
+
+The LR model with feature selection results in a validation balanced accuracy of `r BalancedAccuracy`.
+Since this is higher than the balanced accuracy of LR with all features, it's plausible our feature selection might be doing an OK job at finding the true features.
+
+## Classsification Challenge
+
+* Chems-R-Us would like a "ranking" of the testing molecules in terms of bioavailability.
+* The ranking can be any number *leading to a classification*. Here we  like _log odds_.
+* This means **larger values are more likely to be in class 1** and **values less than 0 mean class -1**. 
+      * The results will be **ranked by AUC**.
+
+
+
+## Computing ROC Curves for LR & LR with Feature Selection
+
+Here we compute the ROC curves for LR and LR with feature selection. We can see that their performance is very comparable.  
+
+Here is a video explaining AUC from Statquest: 
+https://www.youtube.com/watch?v=C4N3_XJJ-jU
+
+   * **Sensitivity** (also called the *true positive rate* or the *recall*) measures the proportion of actual positives that are correctly identified as such (e.g., the percentage of passengers that survived people who are correctly identified as having survived). _It is the same as the Class 1 accuracy._
+
+   * **Specificity** (also called the *true negative rate*) measures the proportion of actual negatives that are correctly identified as such (e.g., the percentage of patients who died who are correctly identified as not having died). _It is the same as the Class -1 accuracy._  
+
+## ROC Curves (code)
+
+\small
+```{r, warning=FALSE, message=FALSE, fig.keep="none"}
+roc.data <- data.frame("Class" = classval, 
+                       "No Selection" = ranking_lr.val, 
+                       "With Selection" = ranking_lr.fs.val)
+roc.list <- roc(Class ~., 
+                data = roc.data)
+no.selection.auc <- round(auc(Class ~ No.Selection, data = roc.data), digits = 3)
+with.selection.auc <- round(auc(Class ~ With.Selection, data = roc.data), digits = 3)
+roc_plot <- ggroc(roc.list) + 
+   ggtitle("ROC Curves (Validation Set)", subtitle = "GLM without Feature Selection versus GLM with Feature Selection") + 
+   scale_color_discrete(name = "Model", 
+                        labels = c(paste("No Selection\nAUC :", no.selection.auc), paste("With Selection\nAUC :", with.selection.auc)))
+roc_plot
+```
+
+## ROC Curves (generated plot)
+
+```{r, echo=FALSE}
+roc_plot
+```
+
+## Interpreting the ROC Results
+
+The validation results showw that LR with feature selection produces slightly better generalizations (accuracy on the validation set) results than our original model using all the variables.  
+
+We can see this on the ROC curve as the blue line (feature selection) is almost always **bigger** than the red line (no feature selection). This results in LR with feature selection having a **higher AUC** than LR with all features, so we will use this in our entry to the contest.
+Note that we only used `r sum(significant.variables)` of the 158 features too.
+
+## Competition Entry: Saving & Uploading Your Predictions
+
+The contest is located at: 
+
+   * http://codalab.idea.rpi.edu/competitions/37 (RPI VPN - runs faster)
+   * https://competitions.codalab.org/competitions/30686 (Codalab.org) 
+   
+ Your team should use the same version of the competition  
+
+The following code creates a valid entry for the contest: 
+
+   * Predict the test data and put the ranking in `ranking_lrtest`
+      * The ranking can be any number *leading to a classification like log odds*.
+      * This means **values greater than 0 mean class 1** and **values less than 0 mean class -1**. 
+      * The results will be **ranked by AUC**.
+   * Then write the results the CSV file named `classification.csv` (You _must_ use this filename)
+
+\tiny
+```{r}
+# Predict the test data (OUTPUTS LOG-ODDS) to get rankings
+ranking_lrtest <- predict(lrfit.fs, test)
+ranking_lrtest <- as.numeric(ranking_lrtest)
+
+# no need to convert to 0 and 1 since ranking needed for AUC.
+write.table(ranking_lrtest,file = "classification.csv", row.names=F, col.names=F)
+```
+
+## Storing Feature Selection Results
+
+   * Store your prediction for the features.
+      * This should be **binary**, where **1 means keep the feature** and **0 means don't keep feature**. 
+      * The results will be ranked by **balanced accuracy**.
+   * Then write the results the CSV file named `selection.csv` (You _must_ use this filename)
+
+\tiny
+```{r}
+# Here is the mean prediction file for submission to the website 
+# features should be a column vector of 0's and 1's. 
+# 1 = keep feature, 0 = don't
+features<-matrix(0,nrow=(ncol(train)),ncol=1)
+
+# Set the ones we want to keep to 1
+features[significant.variables] <- 1
+write.table(features,file = "selection.csv", row.names=F, col.names=F)
+```
+
+## Zipping and Submitting Your Results
+
+   * Zip your `classification.csv` and `selection.csv` files -- you must use these exact names! -- into a single archive to generate the file `MyEntry-somenumber.csv.zip` to enter the contest. .
+   * The name of your zip file is not important, but **should not include spaces or characters like `(` etc**. The following code creates a zip filename that will always be unique. Note that the entry  file name has a unique time stamp everytime you run it
+
+\tiny
+```{r}
+# get time
+time <-  format(Sys.time(), "%H%M%S")
+
+#This automatically generates a compressed (zip) file 
+system(paste0("zip -u MyEntry-", time, ".csv.zip classification.csv"))
+system(paste0("zip -u MyEntry-", time, ".csv.zip selection.csv"))
+
+paste0("The name of your entry file: MyEntry-", time, ".csv.zip")
+```
+## Zipping and Submitting Your Results (2)
+
+This demo result was uploaded to the account `campoh` and is viewable on the CodaLab competition leaderboard.
+
+Our model performed okay on the classification task, but our feature selection was barely better than random guessing. 
+This means we are probably _throwing out many good features_ and possibly _failing to throw out garbage features_.  
+
+Surely better feature selection strategies must exist! Your goal is to find one that provides both _good predictive accuracy_ and _good feature choices_.  
+

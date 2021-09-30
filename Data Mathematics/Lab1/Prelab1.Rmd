@@ -1,0 +1,115 @@
+---
+title: 'RStudio Basics: Navigating RStudio'
+author: "Your Name Here"
+subtitle: Introduction to Data Mathematics 2020
+output:
+  pdf_document: default
+  header-includes: \usepackage{color}
+  toc: yes
+  html_document: default
+---
+
+
+```{r setup, include=FALSE}
+
+# Required R package installation:
+# This section  install packages if they are not already installed.  This block will not be shown in the knit file.
+knitr::opts_chunk$set(echo = TRUE)
+if (!require("rmarkdown")) {
+  install.packages("rmarkdown")
+  library(rmarkdown)
+}
+```
+
+
+# Prelab and Lab Overview
+In Prelab 1 and Lab 1 you will: 
+* Learn the basics of navigating RStudio and the underlying file system
+* Perform a simple "scavenger hunt" in which you will be asked to find and execute a small R script located on the file system.
+* Learn three of R's most important data types: the R vector, matrix, and data frame
+* Learn how to **knit** (render) HTML and PDF files from your RMarkdown notebook.  
+
+This notebook contains only the **Prelab** sections; you are expected to complete the **Prelab** work before your Wednesday lab session. There is a short online quiz on LMS about the **Prelab** that should be done by Weds 9:00am.
+
+Throughout this notebook we have $\color{blue}{highlighted\ in\ blue}$ key tasks you should perform. Questions highlighted as $\color{blue}{Exercises}$ may be on the quiz, so be sure you have answered them!  
+
+# Accessing RStudio Server on the IDEA Cluster
+
+$\color{blue}{Exercise:\ Accessing\ RStudio\ Server}$
+
+* On the RPI network, browse to https://lp01.idea.rpi.edu/rstudio-ose/ and enter your RPI username and password into the corresponding fields.  
+* You should see the four-pane RStudio user interface.  The four panes include 
+    + RStudio's Editor/Data Viewer: View and edit your code and explore data objects
+    + Console/Terminal: Execute R code interactively, and access the underlying Linux command line
+    + Environment/History: List your data objects, variables and see a history of your R actions
+    + The Files/Plots/Packages/Help/Viewer: View the file system, display plots, see the results of Help requests
+
+# Troubleshooting access to RStudio and LMS
+
+* You can access RStudio Server on the IDEA Cluster as long as you are on the RPI network.  If you are off campus, you can VPN in by following the instructions at http://dotcio.rpi.edu/services/network-remote-access/vpn-connection-and-installation.
+* If your RPI username doesn't work  on RStudio email or if you can't see the file below, email  Dr. Erickson olyerickson@gmail.com immediately or post on class slack channel.
+* If you do not see Introduction to Data Mathematics, email Dr. Bennett bennek@rpi.edu. If you registered later, it may take a few days for you to show up.
+
+**Let's explore RStudio!**
+
+## Navigating the File System Using RStudio
+
+The **Files** tab is used to explore the directories on the IDEA Cluster that you have access to. These include your personal home directory, the course directory and and other directories you have been granted access to, e.g. as part of a research project. You have been granted read, write and execute permissions within your home directory, and read access to the course directories. 
+
+$\color{blue}{Exercise:\ Scavenger\ Hunt}$
+
+1. Click into the *Files* tab
+2. Click on the word `Home` to ensure you are in your `Home` directory
+3. $\color{blue}{What\ subdirectories\ and\ files\ do\ you\ see?}$ data, DocRED, IDM_Work, MATP-4400, R.
+
+4. Click on + `New Folder` in the Files Pane and make a new folder called `IDM_work` in your home directory.
+5. Poke around the directories you see, and locate and click on the file `hunt.Rmd` 
+    + Notice that the contents of this file have been loaded into the Editor pane, usually found in the upper left quadrant of your screen.
+    + This file is a simple example of an *R Markdown* file, which you will be using throughout this course. It mixes nicely formatted text with blocks of R code
+    + Use `Save As ...` in the File menu to save the `hunt.Rmd` to your `IDM_work` directory.
+    + Follow the instructions in the document for executing the code block
+5. In the top of the Editor pane, find the word `Knit`.
+    + Click on the down arrow next to `Knit` and select `Knit to HTML Document`.
+    + Click on the down arrow next to `Knit` and select `Knit to PDF Document`.
+    + Download this PDF (if desired) by clicking on the Download icon (upper right in the PDF viewer)
+6. $\color{blue}{What\ is\ your\ secret?}$ 4f42b284f19cab6c8e1d8b3904c4055a 
+    
+## Using the R Console in RStudio
+
+Type the following two commands into the console.
+
+```{r}
+test <- c(1,2,3,4,5)
+test
+```
+Notice that R displays your result immediately below the command line you just entered. 
+
+
+## Fetching an IDM Template Notebook from the Course Directory
+
+$\color{blue}{:Exercise:\ Fetching\ a\ Template\ Notebook}$
+
+1. The materials you will need for Lab1 have been stored in the `MATP-4400/Lab1/` directory, visible from your `Home` directory. Navigate there now and click on `Lab1.Rmd`.
+2. `Lab1.Rmd` is a template notebook that you will edit with answers during the lab period.  
+   + Once you've opened the notebook, click on RStudio's **File** menu (top left of RStudio)...
+   + Edit author:"your name" to be your actual name.  
+   + Immediately **save** the notebook into the `IDM_work` directory that is in your home directory.
+3. Finally, set your R working directory to `IDM_work` by clicking the **More** tab in the file/plot/packages/help/viewer pane, and then select "Set as Working Directory".
+
+**You've now completed your hands-on tour of RStudio!  Go to LMS and complete the Prelab1 online quiz**
+
+# Prelab 1 Appendix
+
+This Appendix of labs contains more documentation and information to help with a deeper understanding of R.  The appendix is optional and is not graded.
+
+## Reference: RStudio Cheatsheets 
+
+RStudio provides a number of convenient and useful "cheatsheets" through their web site https://www.rstudio.com/resources/cheatsheets/ and via the RStudio **Help** menu. The following cheatsheets might be helpful for Prelab 1 and Lab 1: 
+
+1. [RStudio IDE](https://www.rstudio.com/resources/cheatsheets/#ide) [download](https://github.com/rstudio/cheatsheets/raw/master/rstudio-ide.pdf)
+2. [RMarkdown](https://www.rstudio.com/resources/cheatsheets/#rmarkdown) [download](https://github.com/rstudio/cheatsheets/raw/master/rmarkdown-2.0.pdf)
+
+This list will expand as we get deeper into the course.
+
+
+
