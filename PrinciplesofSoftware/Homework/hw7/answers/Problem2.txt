@@ -1,0 +1,9 @@
+My testing strategy was to start out with the specifications and test a general case,
+along with any corner cases that I thought of for the method. I many cases, this
+involved initializing the graph with a set of nodes and then trying to add
+duplicates and checking that graph had not changed. In terms of testing heuristics,
+I implemented black box testing when I was dealing with If statements. I implemented
+a test, sometimes in one testing block and other times across multiple blocks that
+checked each if statement so that as much of the code would be run as possible.
+I also tried to implement my tests with a range of values to try and get a sense
+of its response on large values, small values and "regular" values.
