@@ -1,0 +1,33 @@
+Fixing problems in Balls and Boxes
+By. Jared Gridley
+
+Approached to getVolume():
+1. To fix Ball.java, I added the class identifier for the constructor. Each of the initial declarations were missing the
+"self." part. Then to fix the other tests in the balltest file, i added the correct return statement for each getter.
+Return self.volume and self.color.
+
+
+2. The second approach is better: Keep track of the total volume of the Balls in BallContainer whenever Balls are added
+and removed. This eliminates the need to perform any computations when getVolume() is called.
+This is more efficient that calculating the volume each time its called, because when no new balls are added, the volume
+would be a simple get function.
+
+
+Implementing getBallsFromSmallest():
+1. One implementation would sort using a Bubble Sort algorithm. This method would compare two consecutive items in the
+list and move the larger one to the right of the list. It would be sorting the list by first pushing the largest element
+and then each smaller element. So the maximum number of times it'd need to be run is the length of the list. This method
+can also deal with duplicates.
+Another Implementation could be in the form of a tree, with a Heap Sort algorithm. This would create a tree and then as
+larger elements are added they will be pushed to the root of the tree and then put into a list and sorted. The main
+problem with this is that it does not handle duplicates, it is also not the best suited towards our data/purposes. So it
+would be more work (computationally) then compared to other sorting methods.
+We could also use Merge Sort algorithm, this will break the list in half, and then continue breaking each smaller list
+in half until it reaches the smallest unit. Then it will rebuild the list by sorting each smaller list and then
+combining it with another list, continuing this process until it had built up to the original size.
+
+2. I think that bubble sort would be best because it does not have to run as many iterations as the other methods. It
+also relies on simpler logic to sort the list, it compares two elements and decides whether to switch them. Therefore,
+it should be a more efficient sort algorithm for data.
+
+

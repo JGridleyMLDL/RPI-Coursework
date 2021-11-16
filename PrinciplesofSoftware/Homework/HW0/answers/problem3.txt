@@ -1,0 +1,28 @@
+Fixing the bugs in Fibonacci:
+By. Jared Gridley
+
+1. Why did Fibonacci fail the testThrowsIllegalArgumentException test? What did
+you have to do to fix it?
+
+testThrowsIllegalArgumentException: it was a problem with 0 being classified as
+ negative, when 0 is nonnegative. So i changed the first iff statement to give
+ the error if the number is less than 0.
+(n<=0) --> (n<0)
+
+
+2. Why did Fibonacci fail the testBaseCase test? What (if anything) did you have
+ to do to fix it?
+
+testBaseCase - Failed because of the same reason as
+testThrowsIllegalArgumentException. It was considering 0 to be a negative number
+so once I changed it to throw an error when it was less than 0, then it fixed
+it.
+
+
+Why did Fibonacci fail the testInductiveCase test? What (if anything) did you
+have to do to fix it?
+public void testInductiveCase() - for this I fixed the mathematical logic of
+the problem in the first else if, i changed the boolean statement to not
+include 2 in automatically returning 1. In the final part, I changed the n+1 to
+n-1 for the first fibonacci call, and the - to a + for the operation of the two
+fibonacci calls
