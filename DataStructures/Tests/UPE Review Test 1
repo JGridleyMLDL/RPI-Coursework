@@ -1,0 +1,23 @@
+
+4. MEMORY CODING
+
+int p =20;
+int *x = &p;
+
+string* y =  new  string[2];			//In order to make a box in the heap, the ‘new’ is required.
+*y = “ox”;			//or y[0] = “ox”
+*(y+1) = “cat”;		//y[1] = “cat”
+y = new string[1];
+y[0] = “five”;
+
+int q[3];
+q[0] = 1;
+q[1] = 3;
+q[2] = 2;
+
+int *z = &q[1];
+
+
+
+It would not be possible to delete the strings 'ox' and 'cat'. The pointer to y has already
+been reset to something else. Therefore, we have a memory leak.
