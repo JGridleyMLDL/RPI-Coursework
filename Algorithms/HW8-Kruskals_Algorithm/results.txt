@@ -1,0 +1,35 @@
+Results:
+
+Without Path Compression:
+
+Graph100
+Total Weight: 263492
+Max rank: 14
+Max Height: 15
+Time: 11.464974880218506
+
+Graph1000
+Total Weight: 786722
+Max rank: 14
+Max Height: 15
+Time: 3155.329099178314
+
+With Path Compression:
+
+Graph100
+Total Weight: 263492
+Max rank: 14
+Max Height: 4
+Time: 0.15575194358825684
+ 
+Graph1000
+Total Weight: 786722
+Max rank: 14
+Max Height: 5
+Time: 5.8285439014434814
+
+Graph10000
+Total Weight: 7448724
+Max rank: 17
+Max Height: 6
+Time: 67.20316171646118
